@@ -19,6 +19,7 @@ services:
       CASSANDRA_LISTEN_ADDRESS: cluster-1-node-0
       CASSANDRA_BROADCAST_ADDRESS: cluster-1-node-0
       CASSANDRA_RPC_ADDRESS: cluster-1-node-0
+      CASSANDRA_SEEDS: cluster-1-node-0,cluster-1-node-1
     volumes:
       - ./data/cassandra/cluster-1/cluster-1-node-0:/var/lib/cassandra
       - ./data/jmxremote.access:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/management/jmxremote.access
@@ -40,6 +41,7 @@ services:
       CASSANDRA_LISTEN_ADDRESS: cluster-1-node-1
       CASSANDRA_BROADCAST_ADDRESS: cluster-1-node-1
       CASSANDRA_RPC_ADDRESS: cluster-1-node-1
+      CASSANDRA_SEEDS: cluster-1-node-0,cluster-1-node-1
     volumes:
       - ./data/cassandra/cluster-1/cluster-1-node-1:/var/lib/cassandra
       - ./data/jmxremote.access:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/management/jmxremote.access
@@ -61,6 +63,7 @@ services:
       CASSANDRA_LISTEN_ADDRESS: cluster-2-node-0
       CASSANDRA_BROADCAST_ADDRESS: cluster-2-node-0
       CASSANDRA_RPC_ADDRESS: cluster-2-node-0
+      CASSANDRA_SEEDS: cluster-2-node-0,cluster-2-node-1
     volumes:
       - ./data/cassandra/cluster-2/cluster-2-node-r02:/var/lib/cassandra
       - ./data/jmxremote.access:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/management/jmxremote.access
@@ -82,6 +85,7 @@ services:
       CASSANDRA_LISTEN_ADDRESS: cluster-2-node-1
       CASSANDRA_BROADCAST_ADDRESS: cluster-2-node-1
       CASSANDRA_RPC_ADDRESS: cluster-2-node-1
+      CASSANDRA_SEEDS: cluster-2-node-0,cluster-2-node-1
     volumes:
       - ./data/cassandra/cluster-2/cluster-2-node-1:/var/lib/cassandra
       - ./data/jmxremote.access:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/management/jmxremote.access
