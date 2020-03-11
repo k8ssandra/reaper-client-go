@@ -100,10 +100,11 @@ services:
       REAPER_JMX_PORTS: "{cassandra1: 7199, cassandra2: 7199}"
       REAPER_JMX_AUTH_USERNAME: reaperUser
       REAPER_JMX_AUTH_PASSWORD: reaperPass
+      REAPER_AUTH_ENABLED: "false"
     ports:
       - "8080:8080"
       - "8081:8081"
     volumes:
       - ./data/reaper:/var/log/cassandra-reaper
     networks:
-      - integration-test
+      - integration-tests
