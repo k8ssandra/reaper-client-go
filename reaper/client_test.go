@@ -24,3 +24,21 @@ func TestGetClusterNames(t *testing.T) {
 
 	assert.ElementsMatch(t, expected, actual)
 }
+
+func TestGetCluster(t *testing.T) {
+	client, err := NewClient(reaperURL)
+	if err != nil {
+		t.Fatalf("failed to create reaper client: (%s)", err)
+	}
+
+	name := "cluster-1"
+	cluster, err := client.GetCluster(name)
+	if err != nil {
+		t.Fatalf("failed to get cluster (%s): %s", name, err)
+	}
+
+	assert.Equal(t, cluster.Name, name)
+	assert.Equal(t, cluster.JmxUsername, "reaperUser")
+	assert.True(t, cluster.JmxPasswordSet)
+	assert.Equal(t, len(cluster.Seeds), 2)
+}

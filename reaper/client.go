@@ -2,6 +2,7 @@ package reaper
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 )
@@ -14,8 +15,8 @@ type Client struct {
 
 type Cluster struct {
 	Name            string `json:"name"`
-	jmxUsername     string `json:"jmx_username,omitempty"`
-	jmxPasswordSet  bool `json:"jmx_password_is_set,omitempty"`
+	JmxUsername     string `json:"jmx_username,omitempty"`
+	JmxPasswordSet  bool `json:"jmx_password_is_set,omitempty"`
 	Seeds           []string `json:"seed_hosts,omitempty"`
 }
 
@@ -49,3 +50,36 @@ func (c *Client) GetClusterNames() ([]string, error) {
 
 	return clusterNames, err
 }
+
+func (c *Client) GetCluster(name string) (*Cluster, error) {
+	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", name)}
+	u := c.BaseURL.ResolveReference(rel)
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	cluster := &Cluster{}
+	err = json.NewDecoder(resp.Body).Decode(cluster)
+
+	return cluster, err
+}
+
+//func (c *Client) GetClusters() ([]Cluster, error) {
+//	clusters := []Cluster{}
+//	clusterNames, err := c.GetClusterNames()
+//	if err != nil {
+//		return clusters, err
+//	}
+//
+//	for name := range clusterNames {
+//		cluster
+//	}
+//}
