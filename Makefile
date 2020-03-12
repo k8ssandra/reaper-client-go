@@ -17,3 +17,8 @@ wait-for-cluster-2:
 .PHONY: wait-for-reaper
 wait-for-reaper:
 	./scripts/wait-for-reaper-ready.sh
+
+.PHONY: unit-test
+unit-test:
+	@echo Running tests:
+	go test -v -race -cover ./reaper/...
