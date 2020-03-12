@@ -13,3 +13,7 @@ wait-for-cluster-1:
 .PHONY: wait-for-cluster-2
 wait-for-cluster-2:
 	./scripts/wait-for-cluster-ready.sh cluster-2-node-0
+
+.PHONY: wait-for-reaper
+wait-for-reaper:
+	./scripts/wait-for-reaper-ready.sh
