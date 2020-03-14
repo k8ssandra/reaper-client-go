@@ -13,11 +13,64 @@ type Client struct {
 	httpClient *http.Client
 }
 
+type clusterState struct {
+	Name           string             `json:"name"`
+	JmxUsername    string             `json:"jmx_username,omitempty"`
+	JmxPasswordSet bool               `json:"jmx_password_is_set,omitempty"`
+	Seeds          []string           `json:"seed_hosts,omitempty"`
+	NodeStatus     nodeStatusInternal `json:"nodes_status"`
+}
+
+type nodeStatusInternal struct {
+	EndpointStates []gossipStateInternal `json:"endpointStates,omitempty"`
+}
+
+type gossipStateInternal struct {
+	SourceNode string `json:"sourceNode"`
+	EndpointNames []string `json:"endpointNames,omitempty"`
+	TotalLoad float64 `json:"totalLoad,omitempty"`
+	Endpoints map[string]map[string][]EndpointState
+}
+
 type Cluster struct {
 	Name            string `json:"name"`
 	JmxUsername     string `json:"jmx_username,omitempty"`
 	JmxPasswordSet  bool `json:"jmx_password_is_set,omitempty"`
 	Seeds           []string `json:"seed_hosts,omitempty"`
+	NodeStatus     	NodeStatus
+}
+
+type NodeStatus struct {
+	GossipStates []GossipState
+}
+
+type GossipState struct {
+	SourceNode string `json:"sourceNode"`
+	EndpointNames []string `json:"endpointNames,omitempty"`
+	TotalLoad float64 `json:"totalLoad,omitempty"`
+	DataCenters map[string]DataCenterState
+}
+
+type DataCenterState struct {
+	DataCenter string
+	Racks map[string]RackState
+}
+
+type RackState struct {
+	Rack string
+	Endpoints []EndpointState
+}
+
+type EndpointState struct {
+	Endpoint       string `json:"endpoint"`
+	DataCenter     string `json:"dc"`
+	Rack           string `json:"rack"`
+	HostId         string `json:"hostId"`
+	Status         string `json:"status"`
+	Severity       float64 `json:"severity"`
+	ReleaseVersion string `json:"releaseVersion"`
+	Tokens         string `json:"tokens"`
+	Load           float64 `json:"load"`
 }
 
 func NewClient(reaperBaseURL string) (*Client, error) {
@@ -66,20 +119,42 @@ func (c *Client) GetCluster(name string) (*Cluster, error) {
 	}
 	defer resp.Body.Close()
 
-	cluster := &Cluster{}
-	err = json.NewDecoder(resp.Body).Decode(cluster)
+	clusterState := &clusterState{}
+	err = json.NewDecoder(resp.Body).Decode(clusterState)
+
+	cluster := newCluster(clusterState)
 
 	return cluster, err
 }
 
-//func (c *Client) GetClusters() ([]Cluster, error) {
-//	clusters := []Cluster{}
-//	clusterNames, err := c.GetClusterNames()
-//	if err != nil {
-//		return clusters, err
-//	}
-//
-//	for name := range clusterNames {
-//		cluster
-//	}
-//}
+func newCluster(state *clusterState) *Cluster {
+	cluster := Cluster{
+		Name: state.Name,
+		JmxUsername: state.JmxUsername,
+		JmxPasswordSet: state.JmxPasswordSet,
+		Seeds: state.Seeds,
+	}
+
+	for _, gs := range state.NodeStatus.EndpointStates {
+		gossipState := GossipState{
+			SourceNode: gs.SourceNode,
+			EndpointNames: gs.EndpointNames,
+			TotalLoad: gs.TotalLoad,
+			DataCenters: map[string]DataCenterState{},
+		}
+		for dc, dcStateInternal := range gs.Endpoints {
+			dcState := DataCenterState{DataCenter: dc, Racks: map[string]RackState{}}
+			for rack, endpoints := range dcStateInternal {
+				rackState := RackState{Rack: rack}
+				for _, endpoint := range endpoints {
+					rackState.Endpoints = append(rackState.Endpoints, endpoint)
+				}
+				dcState.Racks[rack] = rackState
+			}
+			gossipState.DataCenters[dc] = dcState
+		}
+		cluster.NodeStatus.GossipStates = append(cluster.NodeStatus.GossipStates, gossipState)
+	}
+
+	return &cluster
+}
