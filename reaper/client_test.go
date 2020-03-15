@@ -9,12 +9,25 @@ const (
 	reaperURL = "http://localhost:8080"
 )
 
-func TestGetClusterNames(t *testing.T) {
+type clientTest func(*testing.T, *Client)
+
+func run(client *Client, test clientTest) func (*testing.T) {
+	return func(t *testing.T) {
+		test(t, client)
+	}
+}
+
+func TestClient(t *testing.T) {
 	client, err := NewClient(reaperURL)
 	if err != nil {
 		t.Fatalf("failed to create reaper client: (%s)", err)
 	}
 
+	t.Run("GetClusterNames", run(client, testGetClusterNames))
+	t.Run("GetCluster", run(client, testGetCluster))
+}
+
+func testGetClusterNames(t *testing.T, client *Client) {
 	expected := []string{"cluster-1", "cluster-2"}
 
 	actual, err := client.GetClusterNames()
@@ -25,12 +38,7 @@ func TestGetClusterNames(t *testing.T) {
 	assert.ElementsMatch(t, expected, actual)
 }
 
-func TestGetCluster(t *testing.T) {
-	client, err := NewClient(reaperURL)
-	if err != nil {
-		t.Fatalf("failed to create reaper client: (%s)", err)
-	}
-
+func testGetCluster(t *testing.T, client *Client) {
 	name := "cluster-1"
 	cluster, err := client.GetCluster(name)
 	if err != nil {
