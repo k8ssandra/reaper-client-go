@@ -26,10 +26,10 @@ type nodeStatusInternal struct {
 }
 
 type gossipStateInternal struct {
-	SourceNode string `json:"sourceNode"`
+	SourceNode    string `json:"sourceNode"`
 	EndpointNames []string `json:"endpointNames,omitempty"`
-	TotalLoad float64 `json:"totalLoad,omitempty"`
-	Endpoints map[string]map[string][]EndpointState
+	TotalLoad     float64 `json:"totalLoad,omitempty"`
+	Endpoints     map[string]map[string][]EndpointState
 }
 
 type Cluster struct {
@@ -45,19 +45,19 @@ type NodeStatus struct {
 }
 
 type GossipState struct {
-	SourceNode string `json:"sourceNode"`
+	SourceNode    string `json:"sourceNode"`
 	EndpointNames []string `json:"endpointNames,omitempty"`
-	TotalLoad float64 `json:"totalLoad,omitempty"`
-	DataCenters map[string]DataCenterState
+	TotalLoad     float64 `json:"totalLoad,omitempty"`
+	DataCenters   map[string]DataCenterState
 }
 
 type DataCenterState struct {
-	DataCenter string
+	Name  string
 	Racks map[string]RackState
 }
 
 type RackState struct {
-	Rack string
+	Name      string
 	Endpoints []EndpointState
 }
 
@@ -143,9 +143,9 @@ func newCluster(state *clusterState) *Cluster {
 			DataCenters: map[string]DataCenterState{},
 		}
 		for dc, dcStateInternal := range gs.Endpoints {
-			dcState := DataCenterState{DataCenter: dc, Racks: map[string]RackState{}}
+			dcState := DataCenterState{Name: dc, Racks: map[string]RackState{}}
 			for rack, endpoints := range dcStateInternal {
-				rackState := RackState{Rack: rack}
+				rackState := RackState{Name: rack}
 				for _, endpoint := range endpoints {
 					rackState.Endpoints = append(rackState.Endpoints, endpoint)
 				}

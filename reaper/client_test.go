@@ -48,4 +48,29 @@ func TestGetCluster(t *testing.T) {
 	assert.True(t, gossipState.TotalLoad > 0.0)
 	assert.Equal(t, 2, len(gossipState.EndpointNames))
 
+	assert.Equal(t, 1, len(gossipState.DataCenters))
+	dcName := "datacenter1"
+	dc, found := gossipState.DataCenters[dcName]
+	if !found {
+		t.Fatalf("failed to find DataCenter (%s)", dcName)
+	}
+	assert.Equal(t, dcName, dc.Name)
+
+	assert.Equal(t, 1, len(dc.Racks))
+	rackName := "rack1"
+	rack, found := dc.Racks[rackName]
+	if !found {
+		t.Fatalf("failed to find Rack (%s)", rackName)
+	}
+
+	assert.Equal(t, 2, len(rack.Endpoints))
+	for _, ep := range rack.Endpoints {
+		assert.True(t, ep.Endpoint == gossipState.EndpointNames[0] || ep.Endpoint == gossipState.EndpointNames[1])
+		assert.NotEmpty(t, ep.HostId)
+		assert.Equal(t, dcName, ep.DataCenter)
+		assert.Equal(t, rackName, ep.Rack)
+		assert.NotEmpty(t, ep.Status)
+		assert.Equal(t, "3.11.4", ep.ReleaseVersion)
+		assert.NotEmpty(t, ep.Tokens)
+	}
 }
