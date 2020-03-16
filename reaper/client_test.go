@@ -25,6 +25,7 @@ func TestClient(t *testing.T) {
 
 	t.Run("GetClusterNames", run(client, testGetClusterNames))
 	t.Run("GetCluster", run(client, testGetCluster))
+	t.Run("AddDeleteCluster", run(client, testAddDeleteCluster))
 }
 
 func testGetClusterNames(t *testing.T, client *Client) {
@@ -80,5 +81,31 @@ func testGetCluster(t *testing.T, client *Client) {
 		assert.NotEmpty(t, ep.Status)
 		assert.Equal(t, "3.11.4", ep.ReleaseVersion)
 		assert.NotEmpty(t, ep.Tokens)
+	}
+}
+
+func testAddDeleteCluster(t *testing.T, client *Client) {
+	cluster := "cluster-3"
+	seed := "cluster-3-node-0"
+
+	if err := client.AddCluster(cluster, seed); err != nil {
+		t.Fatalf("failed to add cluster (%s): %s", cluster, err)
+	}
+
+	if clusterNames, err := client.GetClusterNames(); err != nil {
+		t.Fatalf("failed to get cluster names: %s", err)
+	} else {
+		assert.Equal(t, 3, len(clusterNames))
+	}
+
+	if err := client.DeleteCluster(cluster); err != nil {
+		t.Fatalf("failed to delete cluster (%s): %s", cluster, err)
+	}
+
+	if clusterNames, err := client.GetClusterNames(); err != nil {
+		t.Fatalf("failed to get cluster names: %s", err)
+	} else {
+		assert.Equal(t, 2, len(clusterNames))
+		assert.NotContains(t, clusterNames, cluster)
 	}
 }

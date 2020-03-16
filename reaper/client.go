@@ -127,6 +127,48 @@ func (c *Client) GetCluster(name string) (*Cluster, error) {
 	return cluster, err
 }
 
+func (c *Client) AddCluster(cluster string, seed string) error {
+	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", cluster)}
+	u := c.BaseURL.ResolveReference(rel)
+
+	req, err := http.NewRequest(http.MethodPut, u.String(), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept", "application/json")
+	q := req.URL.Query()
+	q.Add("seedHost", seed)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// TODO check status code
+	return nil
+}
+
+func (c *Client) DeleteCluster(cluster string) error {
+	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", cluster)}
+	u := c.BaseURL.ResolveReference(rel)
+	req, err := http.NewRequest(http.MethodDelete, u.String(), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// TODO check status code
+	return nil
+}
+
 func newCluster(state *clusterState) *Cluster {
 	cluster := Cluster{
 		Name: state.Name,

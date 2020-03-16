@@ -24,8 +24,8 @@ wait-for-reaper:
 
 .PHONY: setup-tests
 setup-tests: wait-for-reaper wait-for-cluster-1 wait-for-cluster-2 wait-for-cluster-3
-	curl -H "Content-Type: application/json" -d '{"seedHost": "cluster-1}' --request POST http://localhost:8080/cluster
-	curl -H "Content-Type: application/json" -d '{"seedHost": "cluster-2}' --request POST http://localhost:8080/cluster
+	curl -H "Content-Type: application/json" -X PUT http://localhost:8080/cluster/cluster-1?seedHost=cluster-1-node-0
+	curl -H "Content-Type: application/json" -X PUT http://localhost:8080/cluster/cluster-2?seedHost=cluster-2-node-0
 
 .PHONY: test
 test: setup-tests
