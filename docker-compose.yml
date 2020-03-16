@@ -93,6 +93,28 @@ services:
     networks:
       - integration-tests
 
+  cluster-3-node-0:
+    image: cassandra:3.11.4
+    mem_limit: 512m
+    memswap_limit: 512m
+    mem_swappiness: 0
+    environment:
+      CASSANDRA_CLUSTER_NAME: cluster-3
+      CASSANDRA_NUM_TOKENS: 32
+      LOCAL_JMX: "no"
+      MAX_HEAP_SIZE: 256M
+      HEAP_NEWSIZE: 64M
+      CASSANDRA_LISTEN_ADDRESS: cluster-3-node-0
+      CASSANDRA_BROADCAST_ADDRESS: cluster-3-node-0
+      CASSANDRA_RPC_ADDRESS: cluster-3-node-0
+      CASSANDRA_SEEDS: cluster-3-node-0
+    volumes:
+      - ./data/cassandra/cluster-3/cluster-3-node-0:/var/lib/cassandra
+      - ./data/jmxremote.access:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/management/jmxremote.access
+      - ./data/jmxremote.password:/etc/cassandra/jmxremote.password
+    networks:
+      - integration-tests
+
   reaper:
     image: thelastpickle/cassandra-reaper:2.0.2
     environment:
