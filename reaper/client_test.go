@@ -1,9 +1,11 @@
 package reaper
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -62,15 +64,13 @@ func checkCassandraStatus(seed string) ([]byte, error) {
 }
 
 func waitForClusterReady(t *testing.T, seed string, numNodes int) {
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 10; i++ {
 		bytes, err := checkCassandraStatus(seed)
-		if err != nil {
-			t.Fatalf("failed waiting for nodetool status with seed (%s): %s", seed, err)
-		}
-
-		matches := cassandraReadyStatusRegex.FindAll(bytes, -1)
-		if matches != nil && len(matches) == numNodes {
-			return
+		if err == nil {
+			matches := cassandraReadyStatusRegex.FindAll(bytes, -1)
+			if matches != nil && len(matches) == numNodes {
+				return
+			}
 		}
 
 		time.Sleep(1 * time.Second)
@@ -97,8 +97,21 @@ func TestClient(t *testing.T) {
 		t.Fatalf("failed to create reaper client: (%s)", err)
 	}
 
-	dockerCompose := exec.Command("docker-compose", "up", "-d")
-	if err := dockerCompose.Run(); err != nil {
+	stopServices := exec.Command("docker-compose", "down")
+	if err := stopServices.Run(); err != nil {
+		t.Fatalf("failed to stop docker services: %s", err)
+	}
+
+	cassandrDataDir, err := filepath.Abs("../data/cassandra")
+	if err != nil {
+		t.Fatalf("failed to get absolute path of cassandra data directory: %s", err)
+	}
+	if err := os.RemoveAll(cassandrDataDir); err != nil {
+		t.Fatalf("failed to purge cassandra data directory: %s", err)
+	}
+
+	startServices := exec.Command("docker-compose", "up", "-d")
+	if err := startServices.Run(); err != nil {
 		t.Fatalf("failed to start docker services: %s", err)
 	}
 
@@ -106,6 +119,9 @@ func TestClient(t *testing.T) {
 	waitForClusterReady(t, "cluster-2-node-0", 2)
 	waitForClusterReady(t, "cluster-3-node-0", 1)
 	// TODO add ready check for reaper
+
+	fmt.Println("Wait for services...")
+	time.Sleep(2 * time.Second)
 
 	addCluster("cluster-1", "cluster-1-node-0")
 	addCluster("cluster-2", "cluster-2-node-0")
@@ -142,9 +158,9 @@ func testGetCluster(t *testing.T, client *Client) {
 	gossipState := cluster.NodeStatus.GossipStates[0]
 	assert.NotEmpty(t, gossipState.SourceNode)
 	assert.True(t, gossipState.TotalLoad > 0.0)
-	assert.Equal(t, 2, len(gossipState.EndpointNames))
+	assert.Equal(t, 2, len(gossipState.EndpointNames), "EndpointNames (%s)", gossipState.EndpointNames)
 
-	assert.Equal(t, 1, len(gossipState.DataCenters))
+	assert.Equal(t, 1, len(gossipState.DataCenters), "DataCenters (%+v)", gossipState.DataCenters)
 	dcName := "datacenter1"
 	dc, found := gossipState.DataCenters[dcName]
 	if !found {
