@@ -1,13 +1,21 @@
 package reaper
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
+	"log"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"testing"
+	"time"
 )
 
 const (
 	reaperURL = "http://localhost:8080"
 )
+
+var cassandraReadyStatusRegex = regexp.MustCompile(`\nUN `)
 
 type clientTest func(*testing.T, *Client)
 
@@ -17,11 +25,90 @@ func run(client *Client, test clientTest) func (*testing.T) {
 	}
 }
 
+func checkCassandraStatus(seed string) ([]byte, error) {
+	checkStatus := exec.Command(
+		"docker-compose",
+		"exec",
+		"-T",
+		seed,
+		"nodetool",
+		"-u",
+		"reaperUser",
+		"-pw",
+		"reaperPass",
+		"status",
+	)
+
+	outPipe, err := checkStatus.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	if err = checkStatus.Start(); err != nil {
+		return nil, err
+	}
+
+	bytes, err := ioutil.ReadAll(outPipe)
+	if err != nil {
+		return nil, err
+	}
+
+	err = checkStatus.Wait()
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes, nil
+}
+
+func waitForClusterReady(t *testing.T, seed string, numNodes int) {
+	for i := 0; i < 3; i++ {
+		bytes, err := checkCassandraStatus(seed)
+		if err != nil {
+			t.Fatalf("failed waiting for nodetool status with seed (%s): %s", seed, err)
+		}
+
+		matches := cassandraReadyStatusRegex.FindAll(bytes, -1)
+		if matches != nil && len(matches) == numNodes {
+			return
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	t.Fatalf("timed out waiting for nodetool status with seed (%s)", seed)
+}
+
+func addCluster(cluster string, seed string) {
+	relPath := "../scripts/add-cluster.sh"
+	path, err := filepath.Abs(relPath)
+	if err != nil {
+		log.Fatalf("failed to get absolute path of (%s): %s", relPath, err)
+	}
+	script := exec.Command(path, cluster, seed)
+	if err = script.Run(); err != nil {
+		log.Fatalf("failed to add cluster (%s) with seed (%s): %s", cluster, seed, err)
+	}
+}
+
 func TestClient(t *testing.T) {
 	client, err := NewClient(reaperURL)
 	if err != nil {
 		t.Fatalf("failed to create reaper client: (%s)", err)
 	}
+
+	dockerCompose := exec.Command("docker-compose", "up", "-d")
+	if err := dockerCompose.Run(); err != nil {
+		t.Fatalf("failed to start docker services: %s", err)
+	}
+
+	waitForClusterReady(t, "cluster-1-node-0", 2)
+	waitForClusterReady(t, "cluster-2-node-0", 2)
+	waitForClusterReady(t, "cluster-3-node-0", 1)
+	// TODO add ready check for reaper
+
+	addCluster("cluster-1", "cluster-1-node-0")
+	addCluster("cluster-2", "cluster-2-node-0")
 
 	t.Run("GetClusterNames", run(client, testGetClusterNames))
 	t.Run("GetCluster", run(client, testGetCluster))
