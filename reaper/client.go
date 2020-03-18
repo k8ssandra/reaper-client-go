@@ -134,7 +134,7 @@ func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) 
 	return cluster, err
 }
 
-func (c *Client) AddCluster(cluster string, seed string) error {
+func (c *Client) AddCluster(ctx context.Context, cluster string, seed string) error {
 	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", cluster)}
 	u := c.BaseURL.ResolveReference(rel)
 
@@ -146,9 +146,15 @@ func (c *Client) AddCluster(cluster string, seed string) error {
 	q := req.URL.Query()
 	q.Add("seedHost", seed)
 	req.URL.RawQuery = q.Encode()
+	req.WithContext(ctx)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		select {
+		case <- ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		return err
 	}
 	defer resp.Body.Close()

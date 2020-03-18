@@ -108,7 +108,7 @@ func testAddDeleteCluster(t *testing.T, client *Client) {
 	cluster := "cluster-3"
 	seed := "cluster-3-node-0"
 
-	if err := client.AddCluster(cluster, seed); err != nil {
+	if err := client.AddCluster(context.TODO(), cluster, seed); err != nil {
 		t.Fatalf("failed to add cluster (%s): %s", cluster, err)
 	}
 
