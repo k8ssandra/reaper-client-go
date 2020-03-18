@@ -2,10 +2,10 @@ package reaper
 
 import (
 	"fmt"
+	"github.com/jsanda/reaper-client-go/testenv"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"log"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -97,22 +97,8 @@ func TestClient(t *testing.T) {
 		t.Fatalf("failed to create reaper client: (%s)", err)
 	}
 
-	stopServices := exec.Command("docker-compose", "down")
-	if err := stopServices.Run(); err != nil {
-		t.Fatalf("failed to stop docker services: %s", err)
-	}
-
-	cassandrDataDir, err := filepath.Abs("../data/cassandra")
-	if err != nil {
-		t.Fatalf("failed to get absolute path of cassandra data directory: %s", err)
-	}
-	if err := os.RemoveAll(cassandrDataDir); err != nil {
-		t.Fatalf("failed to purge cassandra data directory: %s", err)
-	}
-
-	startServices := exec.Command("docker-compose", "up", "-d")
-	if err := startServices.Run(); err != nil {
-		t.Fatalf("failed to start docker services: %s", err)
+	if err = testenv.ResetServices(); err != nil {
+		t.Fatalf("failed to reset docker services: %s", err)
 	}
 
 	waitForClusterReady(t, "cluster-1-node-0", 2)
