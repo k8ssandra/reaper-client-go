@@ -118,26 +118,17 @@ func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) 
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/json")
-	req.WithContext(ctx)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		select {
-		case <- ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-		return nil, err
-	}
-	defer resp.Body.Close()
 
 	clusterState := &clusterState{}
-	err = json.NewDecoder(resp.Body).Decode(clusterState)
+	_, err = c.do(ctx, req, clusterState)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster (%s): %w", name, err)
+	}
 
 	cluster := newCluster(clusterState)
 
-	return cluster, err
+	return cluster, nil
 }
 
 func (c *Client) AddCluster(ctx context.Context, cluster string, seed string) error {
@@ -176,6 +167,19 @@ func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
 	if err != nil {
 		return err
 	}
+
+	_, err = c.do(ctx, req, nil)
+
+	// TODO check status code
+
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster (%s): %w", cluster, err)
+	}
+
+	return nil
+}
+
+func (c *Client) do(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
 	req.Header.Set("Accept", "application/json")
 	req.WithContext(ctx)
 
@@ -183,15 +187,18 @@ func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
 	if err != nil {
 		select {
 		case <- ctx.Done():
-			return ctx.Err()
+			return nil, ctx.Err()
 		default:
 		}
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	// TODO check status code
-	return nil
+	if v != nil {
+		err = json.NewDecoder(resp.Body).Decode(v)
+	}
+
+	return resp, err
 }
 
 func newCluster(state *clusterState) *Cluster {
