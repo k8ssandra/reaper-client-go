@@ -3,90 +3,18 @@ package reaper
 import (
 	"github.com/jsanda/reaper-client-go/testenv"
 	"github.com/stretchr/testify/assert"
-	"io/ioutil"
-	"log"
-	"os/exec"
-	"path/filepath"
-	"regexp"
 	"testing"
-	"time"
 )
 
 const (
 	reaperURL = "http://localhost:8080"
 )
 
-var cassandraReadyStatusRegex = regexp.MustCompile(`\nUN `)
-
 type clientTest func(*testing.T, *Client)
 
 func run(client *Client, test clientTest) func (*testing.T) {
 	return func(t *testing.T) {
 		test(t, client)
-	}
-}
-
-func checkCassandraStatus(seed string) ([]byte, error) {
-	checkStatus := exec.Command(
-		"docker-compose",
-		"exec",
-		"-T",
-		seed,
-		"nodetool",
-		"-u",
-		"reaperUser",
-		"-pw",
-		"reaperPass",
-		"status",
-	)
-
-	outPipe, err := checkStatus.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-
-	if err = checkStatus.Start(); err != nil {
-		return nil, err
-	}
-
-	bytes, err := ioutil.ReadAll(outPipe)
-	if err != nil {
-		return nil, err
-	}
-
-	err = checkStatus.Wait()
-	if err != nil {
-		return nil, err
-	}
-
-	return bytes, nil
-}
-
-func waitForClusterReady(t *testing.T, seed string, numNodes int) {
-	for i := 0; i < 10; i++ {
-		bytes, err := checkCassandraStatus(seed)
-		if err == nil {
-			matches := cassandraReadyStatusRegex.FindAll(bytes, -1)
-			if matches != nil && len(matches) == numNodes {
-				return
-			}
-		}
-
-		time.Sleep(1 * time.Second)
-	}
-
-	t.Fatalf("timed out waiting for nodetool status with seed (%s)", seed)
-}
-
-func addCluster(cluster string, seed string) {
-	relPath := "../scripts/add-cluster.sh"
-	path, err := filepath.Abs(relPath)
-	if err != nil {
-		log.Fatalf("failed to get absolute path of (%s): %s", relPath, err)
-	}
-	script := exec.Command(path, cluster, seed)
-	if err = script.Run(); err != nil {
-		log.Fatalf("failed to add cluster (%s) with seed (%s): %s", cluster, seed, err)
 	}
 }
 
@@ -114,8 +42,8 @@ func TestClient(t *testing.T) {
 	//fmt.Println("Wait for services...")
 	//time.Sleep(2 * time.Second)
 
-	addCluster("cluster-1", "cluster-1-node-0")
-	addCluster("cluster-2", "cluster-2-node-0")
+	testenv.AddCluster("cluster-1", "cluster-1-node-0")
+	testenv.AddCluster("cluster-2", "cluster-2-node-0")
 
 	t.Run("GetClusterNames", run(client, testGetClusterNames))
 	t.Run("GetCluster", run(client, testGetCluster))

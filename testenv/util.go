@@ -114,3 +114,18 @@ func WaitForClusterReady(seed string, numNodes int) error {
 
 	return fmt.Errorf("timed out waiting for nodetool status with seed (%s)", seed)
 }
+
+// Adds a cluster to Reaper without using the client.
+func AddCluster(cluster string, seed string) error {
+	relPath := "../scripts/add-cluster.sh"
+	path, err := filepath.Abs(relPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path of (%s): %w", relPath, err)
+	}
+	script := exec.Command(path, cluster, seed)
+	if err = script.Run(); err != nil {
+		return fmt.Errorf("add cluster script (%s) failed with seed (%s): %w", path, seed, err)
+	}
+
+	return nil
+}
