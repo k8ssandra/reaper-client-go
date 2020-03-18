@@ -2,10 +2,15 @@ package testenv
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"time"
 )
+
+var cassandraReadyStatusRegex = regexp.MustCompile(`\nUN `)
 
 // Stops all services declared in docker-compose.yaml. This function blocks until the
 // operation completes.
@@ -53,4 +58,59 @@ func ResetServices() error {
 	}
 
 	return nil
+}
+
+func checkCassandraStatus(seed string) ([]byte, error) {
+	checkStatus := exec.Command(
+		"docker-compose",
+		"exec",
+		"-T",
+		seed,
+		"nodetool",
+		"-u",
+		"reaperUser",
+		"-pw",
+		"reaperPass",
+		"status",
+	)
+
+	outPipe, err := checkStatus.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stdout pipe: %w", err)
+	}
+
+	if err = checkStatus.Start(); err != nil {
+		return nil, fmt.Errorf("failed to check cassandra status with seed node (%s): %w", seed, err)
+	}
+
+	bytes, err := ioutil.ReadAll(outPipe)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read stdout for cassandra status check with seed node (%s): %w", seed, err)
+	}
+
+	err = checkStatus.Wait()
+	if err != nil {
+		return nil, fmt.Errorf("failed waiting for cassandra status check to complete with seed node (%s): %w", seed, err)
+	}
+
+	return bytes, nil
+}
+
+// Runs nodetool status against the seed node. Blocks until numNodes nodes report a status of UN.
+// This function will perform a max of 10 checks with a delay of one second between retries.
+func WaitForClusterReady(seed string, numNodes int) error {
+	// TODO make the number of checks configurable
+	for i := 0; i < 10; i++ {
+		bytes, err := checkCassandraStatus(seed)
+		if err == nil {
+			matches := cassandraReadyStatusRegex.FindAll(bytes, -1)
+			if matches != nil && len(matches) == numNodes {
+				return nil
+			}
+		}
+		// TODO make the duration configurable
+		time.Sleep(1 * time.Second)
+	}
+
+	return fmt.Errorf("timed out waiting for nodetool status with seed (%s)", seed)
 }

@@ -1,7 +1,6 @@
 package reaper
 
 import (
-	"fmt"
 	"github.com/jsanda/reaper-client-go/testenv"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
@@ -101,13 +100,19 @@ func TestClient(t *testing.T) {
 		t.Fatalf("failed to reset docker services: %s", err)
 	}
 
-	waitForClusterReady(t, "cluster-1-node-0", 2)
-	waitForClusterReady(t, "cluster-2-node-0", 2)
-	waitForClusterReady(t, "cluster-3-node-0", 1)
+	if err = testenv.WaitForClusterReady("cluster-1-node-0", 2); err != nil {
+		t.Fatalf("cluster-1 readiness check failed: %s", err)
+	}
+	if err = testenv.WaitForClusterReady("cluster-2-node-0", 2); err != nil {
+		t.Fatalf("cluster-2 readiness check failed: %s", err)
+	}
+	if err = testenv.WaitForClusterReady("cluster-3-node-0", 1); err != nil {
+		t.Fatalf("cluster-1 readiness check failed: %s", err)
+	}
 	// TODO add ready check for reaper
 
-	fmt.Println("Wait for services...")
-	time.Sleep(2 * time.Second)
+	//fmt.Println("Wait for services...")
+	//time.Sleep(2 * time.Second)
 
 	addCluster("cluster-1", "cluster-1-node-0")
 	addCluster("cluster-2", "cluster-2-node-0")
