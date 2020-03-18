@@ -51,7 +51,7 @@ func TestClient(t *testing.T) {
 func testGetClusterNames(t *testing.T, client *Client) {
 	expected := []string{"cluster-1", "cluster-2"}
 
-	actual, err := client.GetClusterNames()
+	actual, err := client.GetClusterNames(context.TODO())
 	if err != nil {
 		t.Fatalf("failed to get cluster names: (%s)", err)
 	}
@@ -112,7 +112,7 @@ func testAddDeleteCluster(t *testing.T, client *Client) {
 		t.Fatalf("failed to add cluster (%s): %s", cluster, err)
 	}
 
-	if clusterNames, err := client.GetClusterNames(); err != nil {
+	if clusterNames, err := client.GetClusterNames(context.TODO()); err != nil {
 		t.Fatalf("failed to get cluster names: %s", err)
 	} else {
 		assert.Equal(t, 3, len(clusterNames))
@@ -122,7 +122,7 @@ func testAddDeleteCluster(t *testing.T, client *Client) {
 		t.Fatalf("failed to delete cluster (%s): %s", cluster, err)
 	}
 
-	if clusterNames, err := client.GetClusterNames(); err != nil {
+	if clusterNames, err := client.GetClusterNames(context.TODO()); err != nil {
 		t.Fatalf("failed to get cluster names: %s", err)
 	} else {
 		assert.Equal(t, 2, len(clusterNames))

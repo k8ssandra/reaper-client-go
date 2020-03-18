@@ -83,7 +83,7 @@ func NewClient(reaperBaseURL string) (*Client, error) {
 
 }
 
-func (c *Client) GetClusterNames() ([]string, error) {
+func (c *Client) GetClusterNames(ctx context.Context) ([]string, error) {
 	rel := &url.URL{Path: "/cluster"}
 	u := c.BaseURL.ResolveReference(rel)
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
@@ -91,10 +91,16 @@ func (c *Client) GetClusterNames() ([]string, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.WithContext(ctx)
 	//req.Header.Set("User-Agent", c.UserAgent)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		select {
+		case <- ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
