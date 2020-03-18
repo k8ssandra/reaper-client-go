@@ -90,25 +90,17 @@ func (c *Client) GetClusterNames(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/json")
-	req.WithContext(ctx)
+
 	//req.Header.Set("User-Agent", c.UserAgent)
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		select {
-		case <- ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-		return nil, err
-	}
-	defer resp.Body.Close()
-
 	clusterNames := []string{}
-	err = json.NewDecoder(resp.Body).Decode(&clusterNames)
+	_, err = c.do(ctx, req, &clusterNames)
 
-	return clusterNames, err
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster names: %w", err)
+	}
+
+	return clusterNames, nil
 }
 
 func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) {
@@ -127,6 +119,8 @@ func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) 
 	}
 
 	cluster := newCluster(clusterState)
+
+	// TODO check response status code
 
 	return cluster, nil
 }
@@ -170,7 +164,7 @@ func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
 
 	_, err = c.do(ctx, req, nil)
 
-	// TODO check status code
+	// TODO check response status code
 
 	if err != nil {
 		return fmt.Errorf("failed to delete cluster (%s): %w", cluster, err)
