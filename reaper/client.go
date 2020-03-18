@@ -169,7 +169,7 @@ func (c *Client) AddCluster(ctx context.Context, cluster string, seed string) er
 	return nil
 }
 
-func (c *Client) DeleteCluster(cluster string) error {
+func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
 	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", cluster)}
 	u := c.BaseURL.ResolveReference(rel)
 	req, err := http.NewRequest(http.MethodDelete, u.String(), nil)
@@ -177,9 +177,15 @@ func (c *Client) DeleteCluster(cluster string) error {
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.WithContext(ctx)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		select {
+		case <- ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		return err
 	}
 	defer resp.Body.Close()

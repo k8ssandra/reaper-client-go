@@ -118,7 +118,7 @@ func testAddDeleteCluster(t *testing.T, client *Client) {
 		assert.Equal(t, 3, len(clusterNames))
 	}
 
-	if err := client.DeleteCluster(cluster); err != nil {
+	if err := client.DeleteCluster(context.TODO(), cluster); err != nil {
 		t.Fatalf("failed to delete cluster (%s): %s", cluster, err)
 	}
 
