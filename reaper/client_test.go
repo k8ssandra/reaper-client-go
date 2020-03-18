@@ -1,6 +1,7 @@
 package reaper
 
 import (
+	"context"
 	"github.com/jsanda/reaper-client-go/testenv"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -39,9 +40,6 @@ func TestClient(t *testing.T) {
 	}
 	// TODO add ready check for reaper
 
-	//fmt.Println("Wait for services...")
-	//time.Sleep(2 * time.Second)
-
 	testenv.AddCluster("cluster-1", "cluster-1-node-0")
 	testenv.AddCluster("cluster-2", "cluster-2-node-0")
 
@@ -63,7 +61,7 @@ func testGetClusterNames(t *testing.T, client *Client) {
 
 func testGetCluster(t *testing.T, client *Client) {
 	name := "cluster-1"
-	cluster, err := client.GetCluster(name)
+	cluster, err := client.GetCluster(context.TODO(), name)
 	if err != nil {
 		t.Fatalf("failed to get cluster (%s): %s", name, err)
 	}

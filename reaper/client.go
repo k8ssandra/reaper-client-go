@@ -1,6 +1,7 @@
 package reaper
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -104,7 +105,7 @@ func (c *Client) GetClusterNames() ([]string, error) {
 	return clusterNames, err
 }
 
-func (c *Client) GetCluster(name string) (*Cluster, error) {
+func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) {
 	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", name)}
 	u := c.BaseURL.ResolveReference(rel)
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
@@ -112,9 +113,15 @@ func (c *Client) GetCluster(name string) (*Cluster, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.WithContext(ctx)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		select {
+		case <- ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
