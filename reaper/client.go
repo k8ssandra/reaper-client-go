@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
+	"runtime"
 	"sync"
 )
 
@@ -67,7 +69,9 @@ func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) 
 }
 
 func (c *Client) GetClusters(ctx context.Context) <-chan GetClusterResult {
-	results := make(chan GetClusterResult)
+	// TODO Make the concurrency configurable
+	concurrency := int(math.Min(5, float64(runtime.NumCPU())))
+	results := make(chan GetClusterResult, concurrency)
 
 	clusterNames, err := c.GetClusterNames(ctx)
 	if err != nil {
