@@ -26,6 +26,10 @@ jobs:
           command: |
             export GO111MODULE=on
             make test
+      - persist_to_workspace:
+          root: /home/circleci
+          paths:
+            - reaper-client-go
       - save_cache:
           name: cache go modules
           key: build-{{ .Branch }}-{{ checksum "go.sum" }}
