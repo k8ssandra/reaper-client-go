@@ -28,7 +28,10 @@ jobs:
             make test
       - run:
           name: test cleanup
-          command: make test-cleanup
+          command: |
+            sudo chown -R circleci:circleci data/cassandra
+            sudo chown -R circleci:circleci data/reaper
+            make test-cleanup
       - persist_to_workspace:
           root: /home/circleci
           paths:
