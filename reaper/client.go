@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 )
 
 type Client struct {
@@ -63,6 +64,34 @@ func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) 
 	// TODO check response status code
 
 	return cluster, nil
+}
+
+func (c *Client) GetClusters(ctx context.Context) <-chan GetClusterResult {
+	results := make(chan GetClusterResult)
+
+	clusterNames, err := c.GetClusterNames(ctx)
+	if err != nil {
+		close(results)
+		return results
+	}
+
+	var wg sync.WaitGroup
+
+	go func() {
+		defer close(results)
+		for _, clusterName := range clusterNames {
+			wg.Add(1)
+			go func(name string) {
+				defer wg.Done()
+				cluster, err := c.GetCluster(ctx, name)
+				result := GetClusterResult{Cluster: cluster, Error: err}
+				results <- result
+			}(clusterName)
+		}
+		wg.Wait()
+	}()
+
+	return results
 }
 
 func (c *Client) AddCluster(ctx context.Context, cluster string, seed string) error {

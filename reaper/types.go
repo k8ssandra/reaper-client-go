@@ -41,6 +41,11 @@ type EndpointState struct {
 	Load           float64
 }
 
+type GetClusterResult struct {
+	Cluster *Cluster
+	Error   error
+}
+
 // All the following types are used internally by the client and not part of the public API
 
 type clusterStatus struct {

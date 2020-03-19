@@ -40,11 +40,16 @@ func TestClient(t *testing.T) {
 	}
 	// TODO add ready check for reaper
 
-	testenv.AddCluster("cluster-1", "cluster-1-node-0")
-	testenv.AddCluster("cluster-2", "cluster-2-node-0")
+	if err = testenv.AddCluster("cluster-1", "cluster-1-node-0"); err != nil {
+		t.Fatalf("failed to add cluster-1: %s", err)
+	}
+	if err = testenv.AddCluster("cluster-2", "cluster-2-node-0"); err != nil {
+		t.Fatalf("failed to add cluster-2: %s", err)
+	}
 
 	t.Run("GetClusterNames", run(client, testGetClusterNames))
 	t.Run("GetCluster", run(client, testGetCluster))
+	t.Run("GetClusters", run(client, testGetClusters))
 	t.Run("AddDeleteCluster", run(client, testAddDeleteCluster))
 }
 
@@ -102,6 +107,36 @@ func testGetCluster(t *testing.T, client *Client) {
 		assert.Equal(t, "3.11.4", ep.ReleaseVersion)
 		assert.NotEmpty(t, ep.Tokens)
 	}
+}
+
+func testGetClusters(t *testing.T, client *Client) {
+	results := make([]GetClusterResult, 0)
+
+	for result := range client.GetClusters(context.TODO()) {
+		results = append(results, result)
+	}
+
+	// Verify that we got the expected number of results
+	assert.Equal(t, 2, len(results))
+
+	// Verify that there were no errors
+	for _, result := range results {
+		assert.Nil(t, result.Error)
+	}
+
+	assertGetClusterResultsContains(t, results, "cluster-1")
+	assertGetClusterResultsContains(t, results, "cluster-2")
+}
+
+func assertGetClusterResultsContains(t *testing.T, results []GetClusterResult, clusterName string) {
+	var cluster *Cluster
+	for _, result := range results {
+		if result.Cluster.Name == clusterName {
+			cluster = result.Cluster
+			break
+		}
+	}
+	assert.NotNil(t, cluster, "failed to find %s", clusterName)
 }
 
 func testAddDeleteCluster(t *testing.T, client *Client) {
