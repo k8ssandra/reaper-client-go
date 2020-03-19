@@ -6,9 +6,6 @@ jobs:
     environment:
       - GO111MODULE: on
       - GOLANG_VERSION: 1.13.6
-      - K8S_VERSION: v1.15.0
-      #      - KIND_VERSION: v0.5.1
-      - OPERATOR_SDK_VERSION: 0.14.0
     working_directory: /home/circleci/reaper-client-go
     steps:
       - run:
@@ -34,4 +31,3 @@ jobs:
           key: build-{{ .Branch }}-{{ checksum "go.sum" }}
           paths:
             - /home/circleci/.go_workspace/pkg
-      

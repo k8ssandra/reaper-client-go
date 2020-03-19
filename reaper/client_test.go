@@ -70,9 +70,9 @@ func testGetCluster(t *testing.T, client *Client) {
 	assert.Equal(t, cluster.JmxUsername, "reaperUser")
 	assert.True(t, cluster.JmxPasswordSet)
 	assert.Equal(t, len(cluster.Seeds), 2)
-	assert.Equal(t, 1, len(cluster.NodeStatus.GossipStates))
+	assert.Equal(t, 1, len(cluster.NodeState.GossipStates))
 
-	gossipState := cluster.NodeStatus.GossipStates[0]
+	gossipState := cluster.NodeState.GossipStates[0]
 	assert.NotEmpty(t, gossipState.SourceNode)
 	assert.True(t, gossipState.TotalLoad > 0.0)
 	assert.Equal(t, 2, len(gossipState.EndpointNames), "EndpointNames (%s)", gossipState.EndpointNames)

@@ -14,66 +14,6 @@ type Client struct {
 	httpClient *http.Client
 }
 
-type clusterState struct {
-	Name           string             `json:"name"`
-	JmxUsername    string             `json:"jmx_username,omitempty"`
-	JmxPasswordSet bool               `json:"jmx_password_is_set,omitempty"`
-	Seeds          []string           `json:"seed_hosts,omitempty"`
-	NodeStatus     nodeStatusInternal `json:"nodes_status"`
-}
-
-type nodeStatusInternal struct {
-	EndpointStates []gossipStateInternal `json:"endpointStates,omitempty"`
-}
-
-type gossipStateInternal struct {
-	SourceNode    string `json:"sourceNode"`
-	EndpointNames []string `json:"endpointNames,omitempty"`
-	TotalLoad     float64 `json:"totalLoad,omitempty"`
-	Endpoints     map[string]map[string][]EndpointState
-}
-
-type Cluster struct {
-	Name            string `json:"name"`
-	JmxUsername     string `json:"jmx_username,omitempty"`
-	JmxPasswordSet  bool `json:"jmx_password_is_set,omitempty"`
-	Seeds           []string `json:"seed_hosts,omitempty"`
-	NodeStatus     	NodeStatus
-}
-
-type NodeStatus struct {
-	GossipStates []GossipState
-}
-
-type GossipState struct {
-	SourceNode    string `json:"sourceNode"`
-	EndpointNames []string `json:"endpointNames,omitempty"`
-	TotalLoad     float64 `json:"totalLoad,omitempty"`
-	DataCenters   map[string]DataCenterState
-}
-
-type DataCenterState struct {
-	Name  string
-	Racks map[string]RackState
-}
-
-type RackState struct {
-	Name      string
-	Endpoints []EndpointState
-}
-
-type EndpointState struct {
-	Endpoint       string `json:"endpoint"`
-	DataCenter     string `json:"dc"`
-	Rack           string `json:"rack"`
-	HostId         string `json:"hostId"`
-	Status         string `json:"status"`
-	Severity       float64 `json:"severity"`
-	ReleaseVersion string `json:"releaseVersion"`
-	Tokens         string `json:"tokens"`
-	Load           float64 `json:"load"`
-}
-
 func NewClient(reaperBaseURL string) (*Client, error) {
 	if baseURL, err := url.Parse(reaperBaseURL); err != nil {
 		return nil, err
@@ -111,7 +51,7 @@ func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) 
 		return nil, err
 	}
 
-	clusterState := &clusterState{}
+	clusterState := &clusterStatus{}
 	_, err = c.do(ctx, req, clusterState)
 
 	if err != nil {
@@ -195,12 +135,13 @@ func (c *Client) do(ctx context.Context, req *http.Request, v interface{}) (*htt
 	return resp, err
 }
 
-func newCluster(state *clusterState) *Cluster {
+func newCluster(state *clusterStatus) *Cluster {
 	cluster := Cluster{
 		Name: state.Name,
 		JmxUsername: state.JmxUsername,
 		JmxPasswordSet: state.JmxPasswordSet,
 		Seeds: state.Seeds,
+		NodeState: NodeState{},
 	}
 
 	for _, gs := range state.NodeStatus.EndpointStates {
@@ -214,14 +155,25 @@ func newCluster(state *clusterState) *Cluster {
 			dcState := DataCenterState{Name: dc, Racks: map[string]RackState{}}
 			for rack, endpoints := range dcStateInternal {
 				rackState := RackState{Name: rack}
-				for _, endpoint := range endpoints {
+				for _, ep := range endpoints {
+					endpoint := EndpointState{
+						Endpoint: ep.Endpoint,
+						DataCenter: ep.DataCenter,
+						Rack: ep.Rack,
+						HostId: ep.HostId,
+						Status: ep.Status,
+						Severity: ep.Severity,
+						ReleaseVersion: ep.ReleaseVersion,
+						Tokens: ep.Tokens,
+						Load: ep.Load,
+					}
 					rackState.Endpoints = append(rackState.Endpoints, endpoint)
 				}
 				dcState.Racks[rack] = rackState
 			}
 			gossipState.DataCenters[dc] = dcState
 		}
-		cluster.NodeStatus.GossipStates = append(cluster.NodeStatus.GossipStates, gossipState)
+		cluster.NodeState.GossipStates = append(cluster.NodeState.GossipStates, gossipState)
 	}
 
 	return &cluster
