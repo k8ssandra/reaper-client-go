@@ -31,3 +31,38 @@ jobs:
           key: build-{{ .Branch }}-{{ checksum "go.sum" }}
           paths:
             - /home/circleci/.go_workspace/pkg
+release:
+  docker:
+    - image: circleci/golang:1.13
+  working_directory: /home/circleci/reaper-client-go
+  steps:
+    - setup_remote_docker
+    - attach_workspace:
+        at: /home/circleci
+    - run:
+        name: creating image release tag
+        command: make push-release-tag
+    - run:
+        name: prepare release artifacs
+        command: make prepare-release-artifacts
+    - run:
+        name: publish release
+        command: |
+          go get github.com/tcnksm/ghr
+          make publish-release
+workflows:
+  version: 2
+  build-and-release:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /^v[0-9]+(\.[0-9]+)*$/
+      - release:
+          requires:
+            - build
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v[0-9]+(\.[0-9]+)*$/
