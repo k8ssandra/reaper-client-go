@@ -68,6 +68,8 @@ func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) 
 	return cluster, nil
 }
 
+// Fetches all clusters. This function is async and may return before any or all results are
+// available. The concurrency is currently determined by min(5, NUM_CPUS).
 func (c *Client) GetClusters(ctx context.Context) <-chan GetClusterResult {
 	// TODO Make the concurrency configurable
 	concurrency := int(math.Min(5, float64(runtime.NumCPU())))
@@ -98,6 +100,8 @@ func (c *Client) GetClusters(ctx context.Context) <-chan GetClusterResult {
 	return results
 }
 
+// Fetches all clusters in a synchronous or blocking manner. Note that this function fails
+// fast if there is an error and no clusters will be returned.
 func (c *Client) GetClustersSync(ctx context.Context) ([]*Cluster, error) {
 	clusters := make([]*Cluster, 0)
 
