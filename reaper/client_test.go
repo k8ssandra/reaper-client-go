@@ -50,6 +50,7 @@ func TestClient(t *testing.T) {
 	t.Run("GetClusterNames", run(client, testGetClusterNames))
 	t.Run("GetCluster", run(client, testGetCluster))
 	t.Run("GetClusters", run(client, testGetClusters))
+	t.Run("GetClustersSync", run(client, testGetClustersSyc))
 	t.Run("AddDeleteCluster", run(client, testAddDeleteCluster))
 }
 
@@ -137,6 +138,29 @@ func assertGetClusterResultsContains(t *testing.T, results []GetClusterResult, c
 		}
 	}
 	assert.NotNil(t, cluster, "failed to find %s", clusterName)
+}
+
+func testGetClustersSyc(t *testing.T, client *Client) {
+	clusters, err := client.GetClustersSync(context.TODO())
+
+	if err != nil {
+		t.Fatalf("failed to get clusters synchronously: %s", err)
+	}
+
+	// Verify that we got the expected number of results
+	assert.Equal(t, 2, len(clusters))
+
+	assertClustersContains(t, clusters, "cluster-1")
+	assertClustersContains(t, clusters, "cluster-2")
+}
+
+func assertClustersContains(t *testing.T, clusters []*Cluster, clusterName string) {
+	for _, cluster := range clusters {
+		if cluster.Name == clusterName {
+			return
+		}
+	}
+	t.Errorf("failed to find cluster (%s)", clusterName)
 }
 
 func testAddDeleteCluster(t *testing.T, client *Client) {

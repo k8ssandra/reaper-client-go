@@ -98,6 +98,19 @@ func (c *Client) GetClusters(ctx context.Context) <-chan GetClusterResult {
 	return results
 }
 
+func (c *Client) GetClustersSync(ctx context.Context) ([]*Cluster, error) {
+	clusters := make([]*Cluster, 0)
+
+	for result := range c.GetClusters(ctx) {
+		if result.Error != nil {
+			return nil, result.Error
+		}
+		clusters = append(clusters, result.Cluster)
+	}
+
+	return clusters, nil
+}
+
 func (c *Client) AddCluster(ctx context.Context, cluster string, seed string) error {
 	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", cluster)}
 	u := c.BaseURL.ResolveReference(rel)
