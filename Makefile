@@ -22,17 +22,7 @@ wait-for-cluster-3:
 wait-for-reaper:
 	./scripts/wait-for-reaper-ready.sh
 
-.PHONY: setup-tests
-setup-tests: wait-for-reaper wait-for-cluster-1 wait-for-cluster-2 wait-for-cluster-3
-	curl -H "Content-Type: application/json" -X PUT http://localhost:8080/cluster/cluster-1?seedHost=cluster-1-node-0
-	curl -H "Content-Type: application/json" -X PUT http://localhost:8080/cluster/cluster-2?seedHost=cluster-2-node-0
-
 .PHONY: test
-test: setup-tests
-	@echo Running tests:
-	go test -v -race -cover ./reaper/...
-
-.PHONY: test-nowait
-test-nowait:
+test:
 	@echo Running tests:
 	go test -v -race -cover ./reaper/...
