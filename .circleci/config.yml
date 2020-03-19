@@ -26,6 +26,9 @@ jobs:
           command: |
             export GO111MODULE=on
             make test
+      - run:
+          name: test cleanup
+          command: make test-cleanup
       - persist_to_workspace:
           root: /home/circleci
           paths:

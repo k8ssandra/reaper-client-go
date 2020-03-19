@@ -27,6 +27,12 @@ test:
 	@echo Running tests:
 	go test -v -race -cover ./reaper/...
 
+.PHONY: test-cleanup
+test-cleanup:
+	@echo Running test-cleanup
+	rm -rf data/cassandra
+	rm -rf data/reaper
+
 .PHONY: publish-release
 publish-release:
 	ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -debug -replace ${CIRCLE_TAG}
