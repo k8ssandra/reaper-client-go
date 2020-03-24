@@ -11,19 +11,41 @@ import (
 	"sync"
 )
 
+type ReaperClient interface {
+	GetClusterNames(ctx context.Context) ([]string, error)
+
+	GetCluster(ctx context.Context, name string) (*Cluster, error)
+
+	// Fetches all clusters. This function is async and may return before any or all results are
+	// available. The concurrency is currently determined by min(5, NUM_CPUS).
+	GetClusters(ctx context.Context) <-chan GetClusterResult
+
+	// Fetches all clusters in a synchronous or blocking manner. Note that this function fails
+	// fast if there is an error and no clusters will be returned.
+	GetClustersSync(ctx context.Context) ([]*Cluster, error)
+
+	AddCluster(ctx context.Context, cluster string, seed string) error
+
+	DeleteCluster(ctx context.Context, cluster string) error
+}
+
 type Client struct {
 	BaseURL    *url.URL
 	UserAgent  string
 	httpClient *http.Client
 }
 
-func NewClient(reaperBaseURL string) (*Client, error) {
+func newClient(reaperBaseURL string) (*Client, error) {
 	if baseURL, err := url.Parse(reaperBaseURL); err != nil {
 		return nil, err
 	} else {
 		return &Client{BaseURL: baseURL, UserAgent: "", httpClient: &http.Client{}}, nil
 	}
 
+}
+
+func NewReaperClient(baseURL string) (ReaperClient, error) {
+	return newClient(baseURL)
 }
 
 func (c *Client) GetClusterNames(ctx context.Context) ([]string, error) {

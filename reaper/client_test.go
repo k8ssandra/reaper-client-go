@@ -20,7 +20,7 @@ func run(client *Client, test clientTest) func (*testing.T) {
 }
 
 func TestClient(t *testing.T) {
-	client, err := NewClient(reaperURL)
+	client, err := newClient(reaperURL)
 	if err != nil {
 		t.Fatalf("failed to create reaper client: (%s)", err)
 	}
