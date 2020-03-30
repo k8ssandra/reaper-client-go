@@ -49,6 +49,7 @@ func TestClient(t *testing.T) {
 
 	t.Run("GetClusterNames", run(client, testGetClusterNames))
 	t.Run("GetCluster", run(client, testGetCluster))
+	t.Run("GetClusterNotFound", run(client, testGetClusterNotFound))
 	t.Run("GetClusters", run(client, testGetClusters))
 	t.Run("GetClustersSync", run(client, testGetClustersSyc))
 	t.Run("AddDeleteCluster", run(client, testAddDeleteCluster))
@@ -108,6 +109,17 @@ func testGetCluster(t *testing.T, client *Client) {
 		assert.Equal(t, "3.11.4", ep.ReleaseVersion)
 		assert.NotEmpty(t, ep.Tokens)
 	}
+}
+
+func testGetClusterNotFound(t *testing.T, client *Client) {
+	name := "cluster-notfound"
+	cluster, err := client.GetCluster(context.TODO(), name)
+
+	if err != CassandraClusterNotFound {
+		t.Errorf("expected (%s) but got (%s)", CassandraClusterNotFound, err)
+	}
+
+	assert.Nil(t, cluster, "expected non-existent cluster to be nil")
 }
 
 func testGetClusters(t *testing.T, client *Client) {

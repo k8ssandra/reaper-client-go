@@ -77,15 +77,18 @@ func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) 
 	}
 
 	clusterState := &clusterStatus{}
-	_, err = c.do(ctx, req, clusterState)
+	resp, err := c.do(ctx, req, clusterState)
 
 	if err != nil {
+		fmt.Printf("response: %+v", resp)
 		return nil, fmt.Errorf("failed to get cluster (%s): %w", name, err)
 	}
 
-	cluster := newCluster(clusterState)
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, CassandraClusterNotFound
+	}
 
-	// TODO check response status code
+	cluster := newCluster(clusterState)
 
 	return cluster, nil
 }
@@ -199,6 +202,10 @@ func (c *Client) do(ctx context.Context, req *http.Request, v interface{}) (*htt
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return resp, nil
+	}
 
 	if v != nil {
 		err = json.NewDecoder(resp.Body).Decode(v)
