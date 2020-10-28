@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -165,8 +167,18 @@ func (c *Client) AddCluster(ctx context.Context, cluster string, seed string) er
 	}
 	defer resp.Body.Close()
 
-	// TODO check status code
-	return nil
+	switch {
+	case resp.StatusCode < 300:
+		return nil
+	case resp.StatusCode >= 300 && resp.StatusCode < 400:
+		return ErrRedirectsNotSupported
+	default:
+		if body, err := getBodyAsString(resp); err == nil {
+			return fmt.Errorf("request failed: msg (%s), status code (%d)", body, resp.StatusCode)
+		}
+		log.Printf("failed to get response body: %s", err)
+		return fmt.Errorf("request failed: status code (%d)", resp.StatusCode)
+	}
 }
 
 func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
@@ -256,4 +268,12 @@ func newCluster(state *clusterStatus) *Cluster {
 	}
 
 	return &cluster
+}
+
+func getBodyAsString(resp *http.Response) (string, error) {
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
