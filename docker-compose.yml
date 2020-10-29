@@ -6,7 +6,7 @@ networks:
 
 services:
   cluster-1-node-0:
-    image: cassandra:3.11.4
+    image: cassandra:3.11.8
     mem_limit: 512m
     memswap_limit: 512m
     mem_swappiness: 0
@@ -28,7 +28,7 @@ services:
       - integration-tests
 
   cluster-1-node-1:
-    image: cassandra:3.11.4
+    image: cassandra:3.11.8
     mem_limit: 512m
     memswap_limit: 512m
     mem_swappiness: 0
@@ -50,7 +50,7 @@ services:
       - integration-tests
 
   cluster-2-node-0:
-    image: cassandra:3.11.4
+    image: cassandra:3.11.8
     mem_limit: 512m
     memswap_limit: 512m
     mem_swappiness: 0
@@ -72,7 +72,7 @@ services:
       - integration-tests
 
   cluster-2-node-1:
-    image: cassandra:3.11.4
+    image: cassandra:3.11.8
     mem_limit: 512m
     memswap_limit: 512m
     mem_swappiness: 0
@@ -94,7 +94,7 @@ services:
       - integration-tests
 
   cluster-3-node-0:
-    image: cassandra:3.11.4
+    image: cassandra:3.11.8
     mem_limit: 512m
     memswap_limit: 512m
     mem_swappiness: 0
@@ -116,7 +116,7 @@ services:
       - integration-tests
 
   reaper:
-    image: thelastpickle/cassandra-reaper:2.0.2
+    image: thelastpickle/cassandra-reaper:2.2.1
     environment:
       REAPER_STORAGE_TYPE: memory
       REAPER_JMX_PORTS: "{cassandra1: 7199, cassandra2: 7199}"
