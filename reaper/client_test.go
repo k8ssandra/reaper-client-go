@@ -2,9 +2,10 @@ package reaper
 
 import (
 	"context"
+	"testing"
+
 	"github.com/jsanda/reaper-client-go/testenv"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 const (
@@ -15,35 +16,38 @@ type clientTest func(*testing.T, *Client)
 
 func run(client *Client, test clientTest) func (*testing.T) {
 	return func(t *testing.T) {
+		//name := runtime.FuncForPC(reflect.ValueOf(test).Pointer()).Name()
+		//t.Logf("running %s\n", name)
 		test(t, client)
 	}
 }
 
 func TestClient(t *testing.T) {
+	t.Log("starting test")
+
 	client, err := newClient(reaperURL)
 	if err != nil {
 		t.Fatalf("failed to create reaper client: (%s)", err)
 	}
 
-	if err = testenv.ResetServices(); err != nil {
+	if err = testenv.ResetServices(t); err != nil {
 		t.Fatalf("failed to reset docker services: %s", err)
 	}
 
-	if err = testenv.WaitForClusterReady("cluster-1-node-0", 2); err != nil {
+	if err = testenv.WaitForClusterReady(t,"cluster-1-node-0", 2); err != nil {
 		t.Fatalf("cluster-1 readiness check failed: %s", err)
 	}
-	if err = testenv.WaitForClusterReady("cluster-2-node-0", 2); err != nil {
+	if err = testenv.WaitForClusterReady(t,"cluster-2-node-0", 2); err != nil {
 		t.Fatalf("cluster-2 readiness check failed: %s", err)
 	}
-	if err = testenv.WaitForClusterReady("cluster-3-node-0", 1); err != nil {
+	if err = testenv.WaitForClusterReady(t,"cluster-3-node-0", 1); err != nil {
 		t.Fatalf("cluster-1 readiness check failed: %s", err)
 	}
-	// TODO add ready check for reaper
 
-	if err = testenv.AddCluster("cluster-1", "cluster-1-node-0"); err != nil {
+	if err = testenv.AddCluster(t,"cluster-1", "cluster-1-node-0"); err != nil {
 		t.Fatalf("failed to add cluster-1: %s", err)
 	}
-	if err = testenv.AddCluster("cluster-2", "cluster-2-node-0"); err != nil {
+	if err = testenv.AddCluster(t,"cluster-2", "cluster-2-node-0"); err != nil {
 		t.Fatalf("failed to add cluster-2: %s", err)
 	}
 

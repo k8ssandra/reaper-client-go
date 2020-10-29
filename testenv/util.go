@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"testing"
 	"time"
 )
 
@@ -14,19 +15,22 @@ var cassandraReadyStatusRegex = regexp.MustCompile(`\nUN `)
 
 // Stops all services declared in docker-compose.yaml. This function blocks until the
 // operation completes.
-func StopServices() error {
+func StopServices(t *testing.T) error {
+	t.Log("stopping services")
 	stopServices := exec.Command("docker-compose", "down")
 	return stopServices.Run()
 }
 
 // Starts all services declared in docker-compose.yaml in detached mode.
-func StartServices() error {
+func StartServices(t *testing.T) error {
+	t.Log("starting services")
 	startServices := exec.Command("docker-compose", "up", "-d")
 	return startServices.Run()
 }
 
 // Deletes all contents under PROJECT_ROOT/data/cassandra
-func PurgeCassandraDataDir() error {
+func PurgeCassandraDataDir(t *testing.T) error {
+	t.Log("puring cassandra data dir")
 	cassandrDataDir, err := filepath.Abs("../data/cassandra")
 	if err != nil {
 		return fmt.Errorf("failed to get path of cassandra data dir: %w", err)
@@ -44,16 +48,16 @@ func PurgeCassandraDataDir() error {
 //    * stop all services
 //    * purge cassandra data directory
 //    * start all services
-func ResetServices() error {
-	if err := StopServices(); err != nil {
+func ResetServices(t *testing.T) error {
+	if err := StopServices(t); err != nil {
 		return fmt.Errorf("failed to stop services: %w", err)
 	}
 
-	if err := PurgeCassandraDataDir(); err != nil {
+	if err := PurgeCassandraDataDir(t); err != nil {
 		return fmt.Errorf("failed to purge cassandra data dir: %w", err)
 	}
 
-	if err := StartServices(); err != nil {
+	if err := StartServices(t); err != nil {
 		return fmt.Errorf("failed to start services: %w", err)
 	}
 
@@ -98,9 +102,10 @@ func checkCassandraStatus(seed string) ([]byte, error) {
 
 // Runs nodetool status against the seed node. Blocks until numNodes nodes report a status of UN.
 // This function will perform a max of 10 checks with a delay of one second between retries.
-func WaitForClusterReady(seed string, numNodes int) error {
+func WaitForClusterReady(t *testing.T, seed string, numNodes int) error {
 	// TODO make the number of checks configurable
 	for i := 0; i < 10; i++ {
+		t.Logf("checking cassandra cluster status with seed %s", seed)
 		bytes, err := checkCassandraStatus(seed)
 		if err == nil {
 			matches := cassandraReadyStatusRegex.FindAll(bytes, -1)
@@ -116,7 +121,8 @@ func WaitForClusterReady(seed string, numNodes int) error {
 }
 
 // Adds a cluster to Reaper without using the client.
-func AddCluster(cluster string, seed string) error {
+func AddCluster(t *testing.T, cluster string, seed string) error {
+	t.Logf("registering cluster %s", cluster)
 	relPath := "../scripts/add-cluster.sh"
 	path, err := filepath.Abs(relPath)
 	if err != nil {
