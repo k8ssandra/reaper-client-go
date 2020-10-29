@@ -3,6 +3,7 @@ package reaper
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/jsanda/reaper-client-go/testenv"
 	"github.com/stretchr/testify/assert"
@@ -42,6 +43,23 @@ func TestClient(t *testing.T) {
 	}
 	if err = testenv.WaitForClusterReady(t,"cluster-3-node-0", 1); err != nil {
 		t.Fatalf("cluster-1 readiness check failed: %s", err)
+	}
+
+	isUp := false
+	for i := 0; i < 10; i++ {
+		t.Log("checking if reaper is ready")
+		if isUp, err = client.IsReaperUp(context.Background()); err == nil {
+			if isUp {
+				t.Log("reaper is ready!")
+				break
+			}
+		} else {
+			t.Logf("reaper readiness check failed: %s", err)
+		}
+		time.Sleep(6 * time.Second)
+	}
+	if !isUp {
+		t.Fatalf("reaper readiness check timed out")
 	}
 
 	if err = testenv.AddCluster(t,"cluster-1", "cluster-1-node-0"); err != nil {

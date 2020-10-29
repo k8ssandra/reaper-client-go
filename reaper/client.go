@@ -50,6 +50,21 @@ func NewReaperClient(baseURL string) (ReaperClient, error) {
 	return newClient(baseURL)
 }
 
+func (c *Client) IsReaperUp(ctx context.Context) (bool, error) {
+	rel := &url.URL{Path: "/ping"}
+	u := c.BaseURL.ResolveReference(rel)
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return false, err
+	}
+
+	if resp, err := c.doRequest(ctx, req, nil); err == nil {
+		return resp.StatusCode == http.StatusNoContent, nil
+	} else {
+		return false, err
+	}
+}
+
 func (c *Client) GetClusterNames(ctx context.Context) ([]string, error) {
 	rel := &url.URL{Path: "/cluster"}
 	u := c.BaseURL.ResolveReference(rel)
@@ -61,7 +76,7 @@ func (c *Client) GetClusterNames(ctx context.Context) ([]string, error) {
 	//req.Header.Set("User-Agent", c.UserAgent)
 
 	clusterNames := []string{}
-	_, err = c.do(ctx, req, &clusterNames)
+	_, err = c.doJsonRequest(ctx, req, &clusterNames)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster names: %w", err)
@@ -79,7 +94,7 @@ func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) 
 	}
 
 	clusterState := &clusterStatus{}
-	resp, err := c.do(ctx, req, clusterState)
+	resp, err := c.doJsonRequest(ctx, req, clusterState)
 
 	if err != nil {
 		fmt.Printf("response: %+v", resp)
@@ -189,7 +204,7 @@ func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
 		return err
 	}
 
-	_, err = c.do(ctx, req, nil)
+	_, err = c.doJsonRequest(ctx, req, nil)
 
 	// TODO check response status code
 
@@ -200,8 +215,12 @@ func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
 	return nil
 }
 
-func (c *Client) do(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
+func (c *Client) doJsonRequest(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
 	req.Header.Set("Accept", "application/json")
+	return c.doRequest(ctx, req, v)
+}
+
+func (c *Client) doRequest(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
 	req.WithContext(ctx)
 
 	resp, err := c.httpClient.Do(req)
