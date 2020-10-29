@@ -14,6 +14,8 @@ import (
 )
 
 type ReaperClient interface {
+	IsReaperUp(ctx context.Context) (bool, error)
+
 	GetClusterNames(ctx context.Context) ([]string, error)
 
 	GetCluster(ctx context.Context, name string) (*Cluster, error)
