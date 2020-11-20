@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jsanda/reaper-client-go/testenv"
+	"github.com/k8ssandra/reaper-client-go/testenv"
 	"github.com/stretchr/testify/assert"
 )
 

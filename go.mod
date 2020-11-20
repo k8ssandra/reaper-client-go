@@ -1,4 +1,4 @@
-module github.com/jsanda/reaper-client-go
+module github.com/k8ssandra/reaper-client-go
 
 go 1.14
 
