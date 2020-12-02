@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"runtime"
 	"sync"
+	"time"
 )
 
 type ReaperClient interface {
@@ -31,6 +32,10 @@ type ReaperClient interface {
 	AddCluster(ctx context.Context, cluster string, seed string) error
 
 	DeleteCluster(ctx context.Context, cluster string) error
+
+	RepairSchedules(ctx context.Context) ([]RepairSchedule, error)
+
+	RepairSchedulesPerCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error)
 }
 
 type Client struct {
@@ -43,7 +48,7 @@ func newClient(reaperBaseURL string) (*Client, error) {
 	if baseURL, err := url.Parse(reaperBaseURL); err != nil {
 		return nil, err
 	} else {
-		return &Client{BaseURL: baseURL, UserAgent: "", httpClient: &http.Client{}}, nil
+		return &Client{BaseURL: baseURL, UserAgent: "", httpClient: &http.Client{Timeout: 3 * time.Second}}, nil
 	}
 
 }
@@ -215,6 +220,36 @@ func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
 	}
 
 	return nil
+}
+
+func (c *Client) RepairSchedules(ctx context.Context) ([]RepairSchedule, error) {
+	rel := &url.URL{Path: "/repair_schedule"}
+	return c.fetchRepairSchedules(ctx, rel)
+}
+
+func (c *Client) RepairSchedulesPerCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error) {
+	rel := &url.URL{Path: fmt.Sprintf("/repair_schedule/cluster/%s", clusterName)}
+	return c.fetchRepairSchedules(ctx, rel)
+}
+
+func (c *Client) fetchRepairSchedules(ctx context.Context, rel *url.URL) ([]RepairSchedule, error) {
+	u := c.BaseURL.ResolveReference(rel)
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	schedules := make([]RepairSchedule, 0)
+	resp, err := c.doJsonRequest(ctx, req, &schedules)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("Failed to fetch repair schedules: %v\n", resp.StatusCode)
+	}
+
+	return schedules, nil
 }
 
 func (c *Client) doJsonRequest(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {

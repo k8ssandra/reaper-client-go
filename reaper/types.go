@@ -46,6 +46,39 @@ type GetClusterResult struct {
 	Error   error
 }
 
+type RepairSchedule struct {
+	Id string `json:"id"`
+	State string `json:"state,omitempty"`
+	Intensity float64 `json:"intensity,omitempty"`
+	//private final UUID id;
+	//
+	//private final UUID repairUnitId;
+	//private final State state;
+	//private final int daysBetween;
+	//private final DateTime nextActivation;
+	//private final ImmutableList<UUID> runHistory;
+	//@Deprecated private final int segmentCount;
+	//private final RepairParallelism repairParallelism;
+	//private final double intensity;
+	//private final DateTime creationTime;
+	//private final String owner;
+	//private final DateTime pauseTime;
+	//private final int segmentCountPerNode;
+
+	//public enum State {
+	//ACTIVE,
+	//PAUSED,
+	//DELETED
+	//}
+
+	//public enum RepairParallelism {
+	//SEQUENTIAL("sequential"),
+	//PARALLEL("parallel"),
+	//DATACENTER_AWARE("dc_parallel");
+
+
+}
+
 // All the following types are used internally by the client and not part of the public API
 
 type clusterStatus struct {
