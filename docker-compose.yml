@@ -7,15 +7,16 @@ networks:
 services:
   cluster-1-node-0:
     image: cassandra:3.11.8
-    mem_limit: 512m
-    memswap_limit: 512m
+    mem_limit: 1024m
+    memswap_limit: 2048m
     mem_swappiness: 0
     environment:
       CASSANDRA_CLUSTER_NAME: cluster-1
       CASSANDRA_NUM_TOKENS: 32
       LOCAL_JMX: "no"
-      MAX_HEAP_SIZE: 256M
-      HEAP_NEWSIZE: 64M
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 256M
+      CASSANDRA_START_RPC: "false"
       CASSANDRA_LISTEN_ADDRESS: cluster-1-node-0
       CASSANDRA_BROADCAST_ADDRESS: cluster-1-node-0
       CASSANDRA_RPC_ADDRESS: cluster-1-node-0
@@ -29,18 +30,19 @@ services:
 
   cluster-1-node-1:
     image: cassandra:3.11.8
-    mem_limit: 512m
-    memswap_limit: 512m
+    mem_limit: 1024m
+    memswap_limit: 2048m
     mem_swappiness: 0
     environment:
       CASSANDRA_CLUSTER_NAME: cluster-1
       CASSANDRA_NUM_TOKENS: 32
       LOCAL_JMX: "no"
-      MAX_HEAP_SIZE: 256M
-      HEAP_NEWSIZE: 64M
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 256M
       CASSANDRA_LISTEN_ADDRESS: cluster-1-node-1
       CASSANDRA_BROADCAST_ADDRESS: cluster-1-node-1
       CASSANDRA_RPC_ADDRESS: cluster-1-node-1
+      CASSANDRA_START_RPC: "false"
       CASSANDRA_SEEDS: cluster-1-node-0,cluster-1-node-1
     volumes:
       - ./data/cassandra/cluster-1/cluster-1-node-1:/var/lib/cassandra
@@ -51,17 +53,18 @@ services:
 
   cluster-2-node-0:
     image: cassandra:3.11.8
-    mem_limit: 512m
-    memswap_limit: 512m
+    mem_limit: 1024m
+    memswap_limit: 2048m
     mem_swappiness: 0
     environment:
       CASSANDRA_CLUSTER_NAME: cluster-2
       CASSANDRA_NUM_TOKENS: 32
       LOCAL_JMX: "no"
-      MAX_HEAP_SIZE: 256M
-      HEAP_NEWSIZE: 64M
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 256M
       CASSANDRA_LISTEN_ADDRESS: cluster-2-node-0
       CASSANDRA_BROADCAST_ADDRESS: cluster-2-node-0
+      CASSANDRA_START_RPC: "false"
       CASSANDRA_RPC_ADDRESS: cluster-2-node-0
       CASSANDRA_SEEDS: cluster-2-node-0,cluster-2-node-1
     volumes:
@@ -73,17 +76,18 @@ services:
 
   cluster-2-node-1:
     image: cassandra:3.11.8
-    mem_limit: 512m
-    memswap_limit: 512m
+    mem_limit: 1024m
+    memswap_limit: 2048m
     mem_swappiness: 0
     environment:
       CASSANDRA_CLUSTER_NAME: cluster-2
       CASSANDRA_NUM_TOKENS: 32
       LOCAL_JMX: "no"
-      MAX_HEAP_SIZE: 256M
-      HEAP_NEWSIZE: 64M
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 256M
       CASSANDRA_LISTEN_ADDRESS: cluster-2-node-1
       CASSANDRA_BROADCAST_ADDRESS: cluster-2-node-1
+      CASSANDRA_START_RPC: "false"
       CASSANDRA_RPC_ADDRESS: cluster-2-node-1
       CASSANDRA_SEEDS: cluster-2-node-0,cluster-2-node-1
     volumes:
@@ -95,17 +99,18 @@ services:
 
   cluster-3-node-0:
     image: cassandra:3.11.8
-    mem_limit: 512m
-    memswap_limit: 512m
+    mem_limit: 1024m
+    memswap_limit: 2048m
     mem_swappiness: 0
     environment:
       CASSANDRA_CLUSTER_NAME: cluster-3
       CASSANDRA_NUM_TOKENS: 32
       LOCAL_JMX: "no"
-      MAX_HEAP_SIZE: 256M
-      HEAP_NEWSIZE: 64M
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 256M
       CASSANDRA_LISTEN_ADDRESS: cluster-3-node-0
       CASSANDRA_BROADCAST_ADDRESS: cluster-3-node-0
+      CASSANDRA_START_RPC: "false"
       CASSANDRA_RPC_ADDRESS: cluster-3-node-0
       CASSANDRA_SEEDS: cluster-3-node-0
     volumes:
@@ -116,7 +121,7 @@ services:
       - integration-tests
 
   reaper:
-    image: thelastpickle/cassandra-reaper:2.2.1
+    image: thelastpickle/cassandra-reaper:2.0.5
     environment:
       REAPER_STORAGE_TYPE: memory
       REAPER_JMX_PORTS: "{cassandra1: 7199, cassandra2: 7199}"

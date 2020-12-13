@@ -128,7 +128,7 @@ func testGetCluster(t *testing.T, client *Client) {
 		assert.Equal(t, dcName, ep.DataCenter)
 		assert.Equal(t, rackName, ep.Rack)
 		assert.NotEmpty(t, ep.Status)
-		assert.Equal(t, "3.11.4", ep.ReleaseVersion)
+		assert.Equal(t, "3.11.8", ep.ReleaseVersion)
 		assert.NotEmpty(t, ep.Tokens)
 	}
 }
