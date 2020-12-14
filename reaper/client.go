@@ -35,7 +35,7 @@ type ReaperClient interface {
 
 	RepairSchedules(ctx context.Context) ([]RepairSchedule, error)
 
-	RepairSchedulesPerCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error)
+	RepairSchedulesForCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error)
 }
 
 type Client struct {
@@ -181,7 +181,7 @@ func (c *Client) AddCluster(ctx context.Context, cluster string, seed string) er
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
@@ -227,7 +227,7 @@ func (c *Client) RepairSchedules(ctx context.Context) ([]RepairSchedule, error) 
 	return c.fetchRepairSchedules(ctx, rel)
 }
 
-func (c *Client) RepairSchedulesPerCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error) {
+func (c *Client) RepairSchedulesForCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error) {
 	rel := &url.URL{Path: fmt.Sprintf("/repair_schedule/cluster/%s", clusterName)}
 	return c.fetchRepairSchedules(ctx, rel)
 }
@@ -263,7 +263,7 @@ func (c *Client) doRequest(ctx context.Context, req *http.Request, v interface{}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
@@ -284,19 +284,19 @@ func (c *Client) doRequest(ctx context.Context, req *http.Request, v interface{}
 
 func newCluster(state *clusterStatus) *Cluster {
 	cluster := Cluster{
-		Name: state.Name,
-		JmxUsername: state.JmxUsername,
+		Name:           state.Name,
+		JmxUsername:    state.JmxUsername,
 		JmxPasswordSet: state.JmxPasswordSet,
-		Seeds: state.Seeds,
-		NodeState: NodeState{},
+		Seeds:          state.Seeds,
+		NodeState:      NodeState{},
 	}
 
 	for _, gs := range state.NodeStatus.EndpointStates {
 		gossipState := GossipState{
-			SourceNode: gs.SourceNode,
+			SourceNode:    gs.SourceNode,
 			EndpointNames: gs.EndpointNames,
-			TotalLoad: gs.TotalLoad,
-			DataCenters: map[string]DataCenterState{},
+			TotalLoad:     gs.TotalLoad,
+			DataCenters:   map[string]DataCenterState{},
 		}
 		for dc, dcStateInternal := range gs.Endpoints {
 			dcState := DataCenterState{Name: dc, Racks: map[string]RackState{}}
@@ -304,15 +304,15 @@ func newCluster(state *clusterStatus) *Cluster {
 				rackState := RackState{Name: rack}
 				for _, ep := range endpoints {
 					endpoint := EndpointState{
-						Endpoint: ep.Endpoint,
-						DataCenter: ep.DataCenter,
-						Rack: ep.Rack,
-						HostId: ep.HostId,
-						Status: ep.Status,
-						Severity: ep.Severity,
+						Endpoint:       ep.Endpoint,
+						DataCenter:     ep.DataCenter,
+						Rack:           ep.Rack,
+						HostId:         ep.HostId,
+						Status:         ep.Status,
+						Severity:       ep.Severity,
 						ReleaseVersion: ep.ReleaseVersion,
-						Tokens: ep.Tokens,
-						Load: ep.Load,
+						Tokens:         ep.Tokens,
+						Load:           ep.Load,
 					}
 					rackState.Endpoints = append(rackState.Endpoints, endpoint)
 				}
