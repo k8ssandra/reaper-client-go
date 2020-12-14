@@ -31,6 +31,8 @@ type ReaperClient interface {
 	AddCluster(ctx context.Context, cluster string, seed string) error
 
 	DeleteCluster(ctx context.Context, cluster string) error
+
+	CreateRepairRun(ctx context.Context, cluster, keyspace, owner string) (*RepairRun, error)
 }
 
 type Client struct {
@@ -215,6 +217,35 @@ func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
 	}
 
 	return nil
+}
+
+func (c *Client) CreateRepairRun(ctx context.Context, cluster, keyspace, owner string) (*RepairRun, error) {
+	rel := &url.URL{Path: fmt.Sprintf("/repair_run")}
+	u := c.BaseURL.ResolveReference(rel)
+
+	req, err := http.NewRequest(http.MethodPut, u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	q := req.URL.Query()
+	q.Add("clusterName", cluster)
+	q.Add("keyspace", keyspace)
+	q.Add("owner", owner)
+
+	req.URL.RawQuery = q.Encode()
+	req.WithContext(ctx)
+
+	repairRun := &RepairRun{}
+	resp, err := c.doJsonRequest(ctx, req, repairRun)
+
+	if err != nil {
+		fmt.Printf("response: %+v", resp)
+		return nil, fmt.Errorf("failed to create repair run: %w", err)
+	}
+
+	return repairRun, nil
 }
 
 func (c *Client) doJsonRequest(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {

@@ -46,6 +46,14 @@ type GetClusterResult struct {
 	Error   error
 }
 
+type RepairRun struct {
+	Cluster string `json:"clusterName"`
+
+	Keyspace string `json:"keyspace"`
+
+	Owner string `json:"owner"`
+}
+
 // All the following types are used internally by the client and not part of the public API
 
 type clusterStatus struct {
