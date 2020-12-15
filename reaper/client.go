@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"runtime"
 	"sync"
+	"time"
 )
 
 type ReaperClient interface {
@@ -31,6 +32,10 @@ type ReaperClient interface {
 	AddCluster(ctx context.Context, cluster string, seed string) error
 
 	DeleteCluster(ctx context.Context, cluster string) error
+
+	RepairSchedules(ctx context.Context) ([]RepairSchedule, error)
+
+	RepairSchedulesForCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error)
 }
 
 type Client struct {
@@ -43,7 +48,7 @@ func newClient(reaperBaseURL string) (*Client, error) {
 	if baseURL, err := url.Parse(reaperBaseURL); err != nil {
 		return nil, err
 	} else {
-		return &Client{BaseURL: baseURL, UserAgent: "", httpClient: &http.Client{}}, nil
+		return &Client{BaseURL: baseURL, UserAgent: "", httpClient: &http.Client{Timeout: 3 * time.Second}}, nil
 	}
 
 }
@@ -176,7 +181,7 @@ func (c *Client) AddCluster(ctx context.Context, cluster string, seed string) er
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
@@ -217,6 +222,36 @@ func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
 	return nil
 }
 
+func (c *Client) RepairSchedules(ctx context.Context) ([]RepairSchedule, error) {
+	rel := &url.URL{Path: "/repair_schedule"}
+	return c.fetchRepairSchedules(ctx, rel)
+}
+
+func (c *Client) RepairSchedulesForCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error) {
+	rel := &url.URL{Path: fmt.Sprintf("/repair_schedule/cluster/%s", clusterName)}
+	return c.fetchRepairSchedules(ctx, rel)
+}
+
+func (c *Client) fetchRepairSchedules(ctx context.Context, rel *url.URL) ([]RepairSchedule, error) {
+	u := c.BaseURL.ResolveReference(rel)
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	schedules := make([]RepairSchedule, 0)
+	resp, err := c.doJsonRequest(ctx, req, &schedules)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("Failed to fetch repair schedules: %v\n", resp.StatusCode)
+	}
+
+	return schedules, nil
+}
+
 func (c *Client) doJsonRequest(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
 	req.Header.Set("Accept", "application/json")
 	return c.doRequest(ctx, req, v)
@@ -228,7 +263,7 @@ func (c *Client) doRequest(ctx context.Context, req *http.Request, v interface{}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
@@ -249,19 +284,19 @@ func (c *Client) doRequest(ctx context.Context, req *http.Request, v interface{}
 
 func newCluster(state *clusterStatus) *Cluster {
 	cluster := Cluster{
-		Name: state.Name,
-		JmxUsername: state.JmxUsername,
+		Name:           state.Name,
+		JmxUsername:    state.JmxUsername,
 		JmxPasswordSet: state.JmxPasswordSet,
-		Seeds: state.Seeds,
-		NodeState: NodeState{},
+		Seeds:          state.Seeds,
+		NodeState:      NodeState{},
 	}
 
 	for _, gs := range state.NodeStatus.EndpointStates {
 		gossipState := GossipState{
-			SourceNode: gs.SourceNode,
+			SourceNode:    gs.SourceNode,
 			EndpointNames: gs.EndpointNames,
-			TotalLoad: gs.TotalLoad,
-			DataCenters: map[string]DataCenterState{},
+			TotalLoad:     gs.TotalLoad,
+			DataCenters:   map[string]DataCenterState{},
 		}
 		for dc, dcStateInternal := range gs.Endpoints {
 			dcState := DataCenterState{Name: dc, Racks: map[string]RackState{}}
@@ -269,15 +304,15 @@ func newCluster(state *clusterStatus) *Cluster {
 				rackState := RackState{Name: rack}
 				for _, ep := range endpoints {
 					endpoint := EndpointState{
-						Endpoint: ep.Endpoint,
-						DataCenter: ep.DataCenter,
-						Rack: ep.Rack,
-						HostId: ep.HostId,
-						Status: ep.Status,
-						Severity: ep.Severity,
+						Endpoint:       ep.Endpoint,
+						DataCenter:     ep.DataCenter,
+						Rack:           ep.Rack,
+						HostId:         ep.HostId,
+						Status:         ep.Status,
+						Severity:       ep.Severity,
 						ReleaseVersion: ep.ReleaseVersion,
-						Tokens: ep.Tokens,
-						Load: ep.Load,
+						Tokens:         ep.Tokens,
+						Load:           ep.Load,
 					}
 					rackState.Endpoints = append(rackState.Endpoints, endpoint)
 				}
