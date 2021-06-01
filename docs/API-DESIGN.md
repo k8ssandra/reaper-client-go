@@ -10,7 +10,7 @@ However this page is not entirely up to date. A more exhaustive list is as follo
 
 
 *   Ping
-    *   <font color="green">`GET /ping`</font>
+    *   <b>`GET /ping`</b>
     *   `HEAD /ping`
 *   Authentication
     *   `POST /login`
