@@ -2,6 +2,7 @@ package reaper
 
 import (
 	"context"
+	"net/url"
 	"testing"
 	"time"
 
@@ -13,9 +14,9 @@ const (
 	reaperURL = "http://localhost:8080"
 )
 
-type clientTest func(*testing.T, *Client)
+type clientTest func(*testing.T, Client)
 
-func run(client *Client, test clientTest) func (*testing.T) {
+func run(client Client, test clientTest) func(*testing.T) {
 	return func(t *testing.T) {
 		//name := runtime.FuncForPC(reflect.ValueOf(test).Pointer()).Name()
 		//t.Logf("running %s\n", name)
@@ -26,28 +27,27 @@ func run(client *Client, test clientTest) func (*testing.T) {
 func TestClient(t *testing.T) {
 	t.Log("starting test")
 
-	client, err := newClient(reaperURL)
-	if err != nil {
-		t.Fatalf("failed to create reaper client: (%s)", err)
-	}
+	u, _ := url.Parse(reaperURL)
+	client := NewClient(u)
 
-	if err = testenv.ResetServices(t); err != nil {
+	if err := testenv.ResetServices(t); err != nil {
 		t.Fatalf("failed to reset docker services: %s", err)
 	}
 
-	if err = testenv.WaitForClusterReady(t,"cluster-1-node-0", 2); err != nil {
+	if err := testenv.WaitForClusterReady(t, "cluster-1-node-0", 2); err != nil {
 		t.Fatalf("cluster-1 readiness check failed: %s", err)
 	}
-	if err = testenv.WaitForClusterReady(t,"cluster-2-node-0", 2); err != nil {
+	if err := testenv.WaitForClusterReady(t, "cluster-2-node-0", 2); err != nil {
 		t.Fatalf("cluster-2 readiness check failed: %s", err)
 	}
-	if err = testenv.WaitForClusterReady(t,"cluster-3-node-0", 1); err != nil {
+	if err := testenv.WaitForClusterReady(t, "cluster-3-node-0", 1); err != nil {
 		t.Fatalf("cluster-1 readiness check failed: %s", err)
 	}
 
 	isUp := false
 	for i := 0; i < 10; i++ {
 		t.Log("checking if reaper is ready")
+		var err error
 		if isUp, err = client.IsReaperUp(context.Background()); err == nil {
 			if isUp {
 				t.Log("reaper is ready!")
@@ -62,10 +62,10 @@ func TestClient(t *testing.T) {
 		t.Fatalf("reaper readiness check timed out")
 	}
 
-	if err = testenv.AddCluster(t,"cluster-1", "cluster-1-node-0"); err != nil {
+	if err := testenv.AddCluster(t, "cluster-1", "cluster-1-node-0"); err != nil {
 		t.Fatalf("failed to add cluster-1: %s", err)
 	}
-	if err = testenv.AddCluster(t,"cluster-2", "cluster-2-node-0"); err != nil {
+	if err := testenv.AddCluster(t, "cluster-2", "cluster-2-node-0"); err != nil {
 		t.Fatalf("failed to add cluster-2: %s", err)
 	}
 
@@ -77,7 +77,7 @@ func TestClient(t *testing.T) {
 	t.Run("AddDeleteCluster", run(client, testAddDeleteCluster))
 }
 
-func testGetClusterNames(t *testing.T, client *Client) {
+func testGetClusterNames(t *testing.T, client Client) {
 	expected := []string{"cluster-1", "cluster-2"}
 
 	actual, err := client.GetClusterNames(context.TODO())
@@ -88,7 +88,7 @@ func testGetClusterNames(t *testing.T, client *Client) {
 	assert.ElementsMatch(t, expected, actual)
 }
 
-func testGetCluster(t *testing.T, client *Client) {
+func testGetCluster(t *testing.T, client Client) {
 	name := "cluster-1"
 	cluster, err := client.GetCluster(context.TODO(), name)
 	if err != nil {
@@ -133,7 +133,7 @@ func testGetCluster(t *testing.T, client *Client) {
 	}
 }
 
-func testGetClusterNotFound(t *testing.T, client *Client) {
+func testGetClusterNotFound(t *testing.T, client Client) {
 	name := "cluster-notfound"
 	cluster, err := client.GetCluster(context.TODO(), name)
 
@@ -144,7 +144,7 @@ func testGetClusterNotFound(t *testing.T, client *Client) {
 	assert.Nil(t, cluster, "expected non-existent cluster to be nil")
 }
 
-func testGetClusters(t *testing.T, client *Client) {
+func testGetClusters(t *testing.T, client Client) {
 	results := make([]GetClusterResult, 0)
 
 	for result := range client.GetClusters(context.TODO()) {
@@ -174,7 +174,7 @@ func assertGetClusterResultsContains(t *testing.T, results []GetClusterResult, c
 	assert.NotNil(t, cluster, "failed to find %s", clusterName)
 }
 
-func testGetClustersSyc(t *testing.T, client *Client) {
+func testGetClustersSyc(t *testing.T, client Client) {
 	clusters, err := client.GetClustersSync(context.TODO())
 
 	if err != nil {
@@ -197,7 +197,7 @@ func assertClustersContains(t *testing.T, clusters []*Cluster, clusterName strin
 	t.Errorf("failed to find cluster (%s)", clusterName)
 }
 
-func testAddDeleteCluster(t *testing.T, client *Client) {
+func testAddDeleteCluster(t *testing.T, client Client) {
 	cluster := "cluster-3"
 	seed := "cluster-3-node-0"
 

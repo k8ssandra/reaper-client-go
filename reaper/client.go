@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-type ReaperClient interface {
+type Client interface {
 	IsReaperUp(ctx context.Context) (bool, error)
 
 	GetClusterNames(ctx context.Context) ([]string, error)
@@ -38,28 +38,39 @@ type ReaperClient interface {
 	RepairSchedulesForCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error)
 }
 
-type Client struct {
-	BaseURL    *url.URL
-	UserAgent  string
+type client struct {
+	baseURL    *url.URL
+	userAgent  string
 	httpClient *http.Client
 }
 
-func newClient(reaperBaseURL string) (*Client, error) {
-	if baseURL, err := url.Parse(reaperBaseURL); err != nil {
-		return nil, err
-	} else {
-		return &Client{BaseURL: baseURL, UserAgent: "", httpClient: &http.Client{Timeout: 3 * time.Second}}, nil
+func NewClient(reaperBaseURL *url.URL, options ...ClientCreateOption) Client {
+	client := &client{baseURL: reaperBaseURL, httpClient: &http.Client{
+		Timeout: 10 * time.Second,
+	}}
+	for _, option := range options {
+		option(client)
 	}
-
+	return client
 }
 
-func NewReaperClient(baseURL string) (ReaperClient, error) {
-	return newClient(baseURL)
+type ClientCreateOption func(client *client)
+
+func WithUserAgent(userAgent string) ClientCreateOption {
+	return func(client *client) {
+		client.userAgent = userAgent
+	}
 }
 
-func (c *Client) IsReaperUp(ctx context.Context) (bool, error) {
+func WithHttpClient(httpClient *http.Client) ClientCreateOption {
+	return func(client *client) {
+		client.httpClient = httpClient
+	}
+}
+
+func (c *client) IsReaperUp(ctx context.Context) (bool, error) {
 	rel := &url.URL{Path: "/ping"}
-	u := c.BaseURL.ResolveReference(rel)
+	u := c.baseURL.ResolveReference(rel)
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		return false, err
@@ -72,9 +83,9 @@ func (c *Client) IsReaperUp(ctx context.Context) (bool, error) {
 	}
 }
 
-func (c *Client) GetClusterNames(ctx context.Context) ([]string, error) {
+func (c *client) GetClusterNames(ctx context.Context) ([]string, error) {
 	rel := &url.URL{Path: "/cluster"}
-	u := c.BaseURL.ResolveReference(rel)
+	u := c.baseURL.ResolveReference(rel)
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, err
@@ -92,9 +103,9 @@ func (c *Client) GetClusterNames(ctx context.Context) ([]string, error) {
 	return clusterNames, nil
 }
 
-func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) {
+func (c *client) GetCluster(ctx context.Context, name string) (*Cluster, error) {
 	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", name)}
-	u := c.BaseURL.ResolveReference(rel)
+	u := c.baseURL.ResolveReference(rel)
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, err
@@ -119,7 +130,7 @@ func (c *Client) GetCluster(ctx context.Context, name string) (*Cluster, error) 
 
 // Fetches all clusters. This function is async and may return before any or all results are
 // available. The concurrency is currently determined by min(5, NUM_CPUS).
-func (c *Client) GetClusters(ctx context.Context) <-chan GetClusterResult {
+func (c *client) GetClusters(ctx context.Context) <-chan GetClusterResult {
 	// TODO Make the concurrency configurable
 	concurrency := int(math.Min(5, float64(runtime.NumCPU())))
 	results := make(chan GetClusterResult, concurrency)
@@ -151,7 +162,7 @@ func (c *Client) GetClusters(ctx context.Context) <-chan GetClusterResult {
 
 // Fetches all clusters in a synchronous or blocking manner. Note that this function fails
 // fast if there is an error and no clusters will be returned.
-func (c *Client) GetClustersSync(ctx context.Context) ([]*Cluster, error) {
+func (c *client) GetClustersSync(ctx context.Context) ([]*Cluster, error) {
 	clusters := make([]*Cluster, 0)
 
 	for result := range c.GetClusters(ctx) {
@@ -164,9 +175,9 @@ func (c *Client) GetClustersSync(ctx context.Context) ([]*Cluster, error) {
 	return clusters, nil
 }
 
-func (c *Client) AddCluster(ctx context.Context, cluster string, seed string) error {
+func (c *client) AddCluster(ctx context.Context, cluster string, seed string) error {
 	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", cluster)}
-	u := c.BaseURL.ResolveReference(rel)
+	u := c.baseURL.ResolveReference(rel)
 
 	req, err := http.NewRequest(http.MethodPut, u.String(), nil)
 	if err != nil {
@@ -203,9 +214,9 @@ func (c *Client) AddCluster(ctx context.Context, cluster string, seed string) er
 	}
 }
 
-func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
+func (c *client) DeleteCluster(ctx context.Context, cluster string) error {
 	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", cluster)}
-	u := c.BaseURL.ResolveReference(rel)
+	u := c.baseURL.ResolveReference(rel)
 	req, err := http.NewRequest(http.MethodDelete, u.String(), nil)
 	if err != nil {
 		return err
@@ -222,18 +233,18 @@ func (c *Client) DeleteCluster(ctx context.Context, cluster string) error {
 	return nil
 }
 
-func (c *Client) RepairSchedules(ctx context.Context) ([]RepairSchedule, error) {
+func (c *client) RepairSchedules(ctx context.Context) ([]RepairSchedule, error) {
 	rel := &url.URL{Path: "/repair_schedule"}
 	return c.fetchRepairSchedules(ctx, rel)
 }
 
-func (c *Client) RepairSchedulesForCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error) {
+func (c *client) RepairSchedulesForCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error) {
 	rel := &url.URL{Path: fmt.Sprintf("/repair_schedule/cluster/%s", clusterName)}
 	return c.fetchRepairSchedules(ctx, rel)
 }
 
-func (c *Client) fetchRepairSchedules(ctx context.Context, rel *url.URL) ([]RepairSchedule, error) {
-	u := c.BaseURL.ResolveReference(rel)
+func (c *client) fetchRepairSchedules(ctx context.Context, rel *url.URL) ([]RepairSchedule, error) {
+	u := c.baseURL.ResolveReference(rel)
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 
 	if err != nil {
@@ -252,12 +263,12 @@ func (c *Client) fetchRepairSchedules(ctx context.Context, rel *url.URL) ([]Repa
 	return schedules, nil
 }
 
-func (c *Client) doJsonRequest(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
+func (c *client) doJsonRequest(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
 	req.Header.Set("Accept", "application/json")
 	return c.doRequest(ctx, req, v)
 }
 
-func (c *Client) doRequest(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
+func (c *client) doRequest(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
 	req.WithContext(ctx)
 
 	resp, err := c.httpClient.Do(req)
