@@ -2,10 +2,7 @@ package reaper
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -69,14 +66,7 @@ func WithHttpClient(httpClient *http.Client) ClientCreateOption {
 }
 
 func (c *client) IsReaperUp(ctx context.Context) (bool, error) {
-	rel := &url.URL{Path: "/ping"}
-	u := c.baseURL.ResolveReference(rel)
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	if err != nil {
-		return false, err
-	}
-
-	if resp, err := c.doRequest(ctx, req, nil); err == nil {
+	if resp, err := c.doHead(ctx, "/ping", nil); err == nil {
 		return resp.StatusCode == http.StatusNoContent, nil
 	} else {
 		return false, err
@@ -84,48 +74,28 @@ func (c *client) IsReaperUp(ctx context.Context) (bool, error) {
 }
 
 func (c *client) GetClusterNames(ctx context.Context) ([]string, error) {
-	rel := &url.URL{Path: "/cluster"}
-	u := c.baseURL.ResolveReference(rel)
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, err
+	res, err := c.doGet(ctx, "/cluster", nil, http.StatusOK)
+	if err == nil {
+		clusterNames := make([]string, 0)
+		err = c.readBodyAsJson(res, &clusterNames)
+		if err == nil {
+			return clusterNames, nil
+		}
 	}
-
-	//req.Header.Set("User-Agent", c.UserAgent)
-
-	clusterNames := []string{}
-	_, err = c.doJsonRequest(ctx, req, &clusterNames)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster names: %w", err)
-	}
-
-	return clusterNames, nil
+	return nil, fmt.Errorf("failed to get cluster names: %w", err)
 }
 
 func (c *client) GetCluster(ctx context.Context, name string) (*Cluster, error) {
-	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", name)}
-	u := c.baseURL.ResolveReference(rel)
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, err
+	path := "/cluster/" + url.PathEscape(name)
+	res, err := c.doGet(ctx, path, nil, http.StatusOK)
+	if err == nil {
+		clusterStatus := &clusterStatus{}
+		err = c.readBodyAsJson(res, clusterStatus)
+		if err == nil {
+			return newCluster(clusterStatus), nil
+		}
 	}
-
-	clusterState := &clusterStatus{}
-	resp, err := c.doJsonRequest(ctx, req, clusterState)
-
-	if err != nil {
-		fmt.Printf("response: %+v", resp)
-		return nil, fmt.Errorf("failed to get cluster (%s): %w", name, err)
-	}
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, CassandraClusterNotFound
-	}
-
-	cluster := newCluster(clusterState)
-
-	return cluster, nil
+	return nil, fmt.Errorf("failed to get cluster %s: %w", name, err)
 }
 
 // Fetches all clusters. This function is async and may return before any or all results are
@@ -176,121 +146,44 @@ func (c *client) GetClustersSync(ctx context.Context) ([]*Cluster, error) {
 }
 
 func (c *client) AddCluster(ctx context.Context, cluster string, seed string) error {
-	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", cluster)}
-	u := c.baseURL.ResolveReference(rel)
-
-	req, err := http.NewRequest(http.MethodPut, u.String(), nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Accept", "application/json")
-	q := req.URL.Query()
-	q.Add("seedHost", seed)
-	req.URL.RawQuery = q.Encode()
-	req.WithContext(ctx)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		return err
-	}
-	defer resp.Body.Close()
-
-	switch {
-	case resp.StatusCode < 300:
+	queryParams := &url.Values{}
+	queryParams.Set("seedHost", seed)
+	path := "/cluster/" + url.PathEscape(cluster)
+	_, err := c.doPut(ctx, path, queryParams, nil, http.StatusCreated, http.StatusNoContent, http.StatusOK)
+	if err == nil {
 		return nil
-	case resp.StatusCode >= 300 && resp.StatusCode < 400:
-		return ErrRedirectsNotSupported
-	default:
-		if body, err := getBodyAsString(resp); err == nil {
-			return fmt.Errorf("request failed: msg (%s), status code (%d)", body, resp.StatusCode)
-		}
-		log.Printf("failed to get response body: %s", err)
-		return fmt.Errorf("request failed: status code (%d)", resp.StatusCode)
 	}
+	return fmt.Errorf("failed to create cluster %s: %w", cluster, err)
 }
 
 func (c *client) DeleteCluster(ctx context.Context, cluster string) error {
-	rel := &url.URL{Path: fmt.Sprintf("/cluster/%s", cluster)}
-	u := c.baseURL.ResolveReference(rel)
-	req, err := http.NewRequest(http.MethodDelete, u.String(), nil)
-	if err != nil {
-		return err
+	path := "/cluster/" + url.PathEscape(cluster)
+	_, err := c.doDelete(ctx, path, nil, http.StatusAccepted)
+	if err == nil {
+		return nil
 	}
-
-	_, err = c.doJsonRequest(ctx, req, nil)
-
-	// TODO check response status code
-
-	if err != nil {
-		return fmt.Errorf("failed to delete cluster (%s): %w", cluster, err)
-	}
-
-	return nil
+	return fmt.Errorf("failed to delete cluster %s: %w", cluster, err)
 }
 
 func (c *client) RepairSchedules(ctx context.Context) ([]RepairSchedule, error) {
-	rel := &url.URL{Path: "/repair_schedule"}
-	return c.fetchRepairSchedules(ctx, rel)
+	return c.fetchRepairSchedules(ctx, "/repair_schedule")
 }
 
 func (c *client) RepairSchedulesForCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error) {
-	rel := &url.URL{Path: fmt.Sprintf("/repair_schedule/cluster/%s", clusterName)}
-	return c.fetchRepairSchedules(ctx, rel)
+	path := "/repair_schedule/cluster/" + url.PathEscape(clusterName)
+	return c.fetchRepairSchedules(ctx, path)
 }
 
-func (c *client) fetchRepairSchedules(ctx context.Context, rel *url.URL) ([]RepairSchedule, error) {
-	u := c.baseURL.ResolveReference(rel)
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-
-	if err != nil {
-		return nil, err
-	}
-
-	schedules := make([]RepairSchedule, 0)
-	resp, err := c.doJsonRequest(ctx, req, &schedules)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("Failed to fetch repair schedules: %v\n", resp.StatusCode)
-	}
-
-	return schedules, nil
-}
-
-func (c *client) doJsonRequest(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
-	req.Header.Set("Accept", "application/json")
-	return c.doRequest(ctx, req, v)
-}
-
-func (c *client) doRequest(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
-	req.WithContext(ctx)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
+func (c *client) fetchRepairSchedules(ctx context.Context, path string) ([]RepairSchedule, error) {
+	res, err := c.doGet(ctx, path, nil, http.StatusOK)
+	if err == nil {
+		repairSchedules := make([]RepairSchedule, 0)
+		err = c.readBodyAsJson(res, &repairSchedules)
+		if err == nil {
+			return repairSchedules, nil
 		}
-		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return resp, nil
-	}
-
-	if v != nil {
-		err = json.NewDecoder(resp.Body).Decode(v)
-	}
-
-	return resp, err
+	return nil, fmt.Errorf("failed to fetch repair schedules: %w", err)
 }
 
 func newCluster(state *clusterStatus) *Cluster {
@@ -335,12 +228,4 @@ func newCluster(state *clusterStatus) *Cluster {
 	}
 
 	return &cluster
-}
-
-func getBodyAsString(resp *http.Response) (string, error) {
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	return string(body), nil
 }

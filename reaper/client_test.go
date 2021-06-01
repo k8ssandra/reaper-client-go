@@ -136,11 +136,8 @@ func testGetCluster(t *testing.T, client Client) {
 func testGetClusterNotFound(t *testing.T, client Client) {
 	name := "cluster-notfound"
 	cluster, err := client.GetCluster(context.TODO(), name)
-
-	if err != CassandraClusterNotFound {
-		t.Errorf("expected (%s) but got (%s)", CassandraClusterNotFound, err)
-	}
-
+	assert.NotNil(t, err)
+	assert.Containsf(t, err.Error(), "cluster with name \"cluster-notfound\" not found", name)
 	assert.Nil(t, cluster, "expected non-existent cluster to be nil")
 }
 
