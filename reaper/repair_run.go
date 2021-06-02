@@ -217,7 +217,7 @@ func (c *client) GetRepairRun(ctx context.Context, repairRunId uuid.UUID) (*Repa
 	return nil, fmt.Errorf("failed to get repair run %v: %w", repairRunId, err)
 }
 
-func (c *client) CreateRepairRun(ctx context.Context, cluster string, keyspace string, owner string, options *RepairRunCreateOptions) (*RepairRun, error) {
+func (c *client) CreateRepairRun(ctx context.Context, cluster string, keyspace string, owner string, options *RepairRunCreateOptions) (uuid.UUID, error) {
 	queryParams, err := c.mergeParamSources(
 		map[string]string{
 			"clusterName": cluster,
@@ -238,11 +238,11 @@ func (c *client) CreateRepairRun(ctx context.Context, cluster string, keyspace s
 			repairRun := &RepairRun{}
 			err = c.readBodyAsJson(res, repairRun)
 			if err == nil {
-				return repairRun, nil
+				return repairRun.Id, nil
 			}
 		}
 	}
-	return nil, fmt.Errorf("failed to create repair run: %w", err)
+	return uuid.Nil, fmt.Errorf("failed to create repair run: %w", err)
 }
 
 func (c *client) UpdateRepairRun(ctx context.Context, repairRunId uuid.UUID, newIntensity Intensity) error {
@@ -294,17 +294,13 @@ func (c *client) GetRepairRunSegments(ctx context.Context, repairRunId uuid.UUID
 	return nil, fmt.Errorf("failed to get segments of repair run %v: %w", repairRunId, err)
 }
 
-func (c *client) AbortRepairRunSegment(ctx context.Context, repairRunId uuid.UUID, segmentId uuid.UUID) (*RepairSegment, error) {
+func (c *client) AbortRepairRunSegment(ctx context.Context, repairRunId uuid.UUID, segmentId uuid.UUID) error {
 	path := fmt.Sprint("/repair_run/", repairRunId, "/segments/abort/", segmentId)
-	res, err := c.doPost(ctx, path, nil, nil, http.StatusOK)
+	_, err := c.doPost(ctx, path, nil, nil, http.StatusOK)
 	if err == nil {
-		repairSegment := &RepairSegment{}
-		err = c.readBodyAsJson(res, repairSegment)
-		if err == nil {
-			return repairSegment, nil
-		}
+		return nil
 	}
-	return nil, fmt.Errorf("failed to abort segment %v of repair run %v: %w", segmentId, repairRunId, err)
+	return fmt.Errorf("failed to abort segment %v of repair run %v: %w", segmentId, repairRunId, err)
 }
 
 func (c *client) DeleteRepairRun(ctx context.Context, repairRunId uuid.UUID, owner string) error {

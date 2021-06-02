@@ -42,7 +42,7 @@ type Client interface {
 		keyspace string,
 		owner string,
 		options *RepairRunCreateOptions,
-	) (*RepairRun, error)
+	) (uuid.UUID, error)
 
 	// UpdateRepairRun modifies the intensity of a PAUSED repair run identified by its id.
 	UpdateRepairRun(ctx context.Context, repairRunId uuid.UUID, newIntensity Intensity) error
@@ -62,7 +62,7 @@ type Client interface {
 
 	// AbortRepairRunSegment aborts a running segment and puts it back in NOT_STARTED state. The segment will be
 	// processed again later during the lifetime of the repair run.
-	AbortRepairRunSegment(ctx context.Context, repairRunId uuid.UUID, segmentId uuid.UUID) (*RepairSegment, error)
+	AbortRepairRunSegment(ctx context.Context, repairRunId uuid.UUID, segmentId uuid.UUID) error
 
 	// DeleteRepairRun deletes a repair run object identified by its id. Repair run and all the related repair segments
 	// will be deleted from the database. If the given owner does not match the stored owner, the delete request will

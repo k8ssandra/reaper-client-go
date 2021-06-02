@@ -34,7 +34,7 @@ func testGetRepairRunNotFound(t *testing.T, client Client) {
 }
 
 func testGetRepairRunIgnoredTables(t *testing.T, client Client) {
-	actual, err := client.CreateRepairRun(
+	runId, err := client.CreateRepairRun(
 		context.Background(),
 		"cluster-2",
 		keyspace,
@@ -42,9 +42,11 @@ func testGetRepairRunIgnoredTables(t *testing.T, client Client) {
 		&RepairRunCreateOptions{IgnoredTables: []string{"table2"}},
 	)
 	require.Nil(t, err)
-	assert.Equal(t, actual.Tables, []string{"table1"})
-	assert.Equal(t, actual.IgnoredTables, []string{"table2"})
-	err = client.DeleteRepairRun(context.Background(), actual.Id, "Bob")
+	repairRun, err := client.GetRepairRun(context.Background(), runId)
+	assert.Nil(t, err)
+	assert.Equal(t, repairRun.Tables, []string{"table1"})
+	assert.Equal(t, repairRun.IgnoredTables, []string{"table2"})
+	err = client.DeleteRepairRun(context.Background(), runId, "Bob")
 	assert.Nil(t, err)
 }
 
@@ -252,18 +254,25 @@ func testAbortRepairRunSegments(t *testing.T, client Client) {
 	// could be STARTED, RUNNING or DONE
 	assert.NotEqual(t, RepairSegmentStateNotStarted, segments[0].State)
 	assert.NotEqual(t, RepairSegmentStateNotStarted, segments[1].State)
-	actual1, err := client.AbortRepairRunSegment(context.Background(), run.Id, segments[0].Id)
+	expectedStates := map[uuid.UUID]RepairSegmentState{
+		segments[0].Id: RepairSegmentStateNotStarted,
+		segments[1].Id: RepairSegmentStateNotStarted,
+	}
+	err = client.AbortRepairRunSegment(context.Background(), run.Id, segments[0].Id)
 	if err != nil {
 		require.Contains(t, err.Error(), "Cannot abort segment on repair run with status DONE")
-	} else {
-		assert.Equal(t, RepairSegmentStateNotStarted, actual1.State)
+		expectedStates[segments[0].Id] = RepairSegmentStateDone
 	}
-	actual2, err := client.AbortRepairRunSegment(context.Background(), run.Id, segments[1].Id)
+	err = client.AbortRepairRunSegment(context.Background(), run.Id, segments[1].Id)
 	if err != nil {
 		require.Contains(t, err.Error(), "Cannot abort segment on repair run with status DONE")
-	} else {
-		assert.Equal(t, RepairSegmentStateNotStarted, actual2.State)
+		expectedStates[segments[1].Id] = RepairSegmentStateDone
 	}
+	segments, err = client.GetRepairRunSegments(context.Background(), run.Id)
+	require.Nil(t, err)
+	require.Len(t, segments, 2)
+	assert.Equal(t, expectedStates[segments[0].Id], segments[0].State)
+	assert.Equal(t, expectedStates[segments[1].Id], segments[1].State)
 }
 
 func testDeleteRepairRunNotFound(t *testing.T, client Client) {
@@ -283,7 +292,7 @@ func testPurgeRepairRun(t *testing.T, client Client) {
 }
 
 func createRepairRun(t *testing.T, client Client, cluster string) *RepairRun {
-	actual, err := client.CreateRepairRun(
+	runId, err := client.CreateRepairRun(
 		context.Background(),
 		cluster,
 		keyspace,
@@ -299,7 +308,9 @@ func createRepairRun(t *testing.T, client Client, cluster string) *RepairRun {
 		},
 	)
 	require.Nil(t, err)
-	return checkRepairRun(t, cluster, actual)
+	repairRun, err := client.GetRepairRun(context.Background(), runId)
+	require.Nil(t, err)
+	return checkRepairRun(t, cluster, repairRun)
 }
 
 func checkRepairRun(t *testing.T, cluster string, actual *RepairRun) *RepairRun {
