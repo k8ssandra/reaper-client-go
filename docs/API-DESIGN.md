@@ -102,11 +102,15 @@ However this page is not entirely up to date. A more exhaustive list is as follo
 
 				GetClusterNames(ctx context.Context, searchOptions *ClusterSearchOptions) ([]string, error)
         
-    4. API methods should start with a standard prefix, followed by the REST resource name (`Cluster`, `RepairRun`, etc.):
-        1. GET: `Get` + plural when returning lists of entities, or singular when returning a single entity
-        2. POST: `Create`, but also `Start`, `Abort`, `Purge` if appropriate (state transitions) + entity name
-        3. PUT: `Update`, but also `Start`, `Pause`, `Resume` if appropriate (state transitions) + entity name
-        4. DELETE: `Delete` + entity name
+    4. API methods should start with a standard prefix except GET methods. This should be followed by the REST resource 
+       name (`Cluster`, `RepairRun`, etc.):
+        1. GET: no prefix; methods should be named after the entity's plural when returning lists of entities, or its 
+           singular form  when returning a single entity. E.g. `Cluster`, `RepairRuns`.
+        2. POST: prefix should be `Create`, or also `Start`, `Abort`, `Purge` if appropriate (state transitions) + 
+           entity name. E.g.`CreateRepairRun`, `AbortRepairRunSegment`.
+        3. PUT: prefix should be `Update`, or also `Start`, `Pause`, `Resume` if appropriate (state transitions) + 
+           entity name. E.g. `UpdateRepairRun`, `ResumeRepairRun`.
+        4. DELETE: prefix should be `Delete` + entity name, e.g.: `DeleteCluster`.
 3. Naming conventions:
     1. Use the word "table" instead of "column family"
     2. Prefer variables named `cluster` or `keyspace` instead of `clusterName`, `keyspaceName`
@@ -221,7 +225,7 @@ I am not sure that these should be preserved. Applications can easily reproduce 
   <tr>
    <td><code>GET /cluster</code>
    </td>
-   <td><code>GetClusterNames(ctx context.Context, seedHost string) ([]string, error)</code>
+   <td><code>ClusterNames(ctx context.Context, seedHost string) ([]string, error)</code>
    </td>
    <td>Already present in the current API. Suffix <code>Names</code> because it's only a list of names, not entities.
    </td>
@@ -229,7 +233,7 @@ I am not sure that these should be preserved. Applications can easily reproduce 
   <tr>
    <td><code>GET /cluster/{cluster_name}</code>
    </td>
-   <td><code>GetCluster(ctx context.Context, name string, renderOptions *ClusterRenderOptions) (*Cluster, error)</code>
+   <td><code>Cluster(ctx context.Context, name string, renderOptions *ClusterRenderOptions) (*Cluster, error)</code>
    </td>
    <td>Already present in the current API. 
    </td>
@@ -237,7 +241,7 @@ I am not sure that these should be preserved. Applications can easily reproduce 
   <tr>
    <td><code>GET /cluster/{cluster_name}/tables</code>
    </td>
-   <td><code>GetClusterSchema(ctx context.Context, name string) (map[string]*Keyspace, error)</code>
+   <td><code>ClusterSchema(ctx context.Context, name string) (map[string]*Keyspace, error)</code>
    </td>
    <td><code>Schema</code> rather than <code>Tables</code> since it is a map of tables keyed by keyspace.
    </td>
@@ -347,7 +351,7 @@ type Endpoint struct {
   <tr>
    <td><code>GET /repair_run</code>
    </td>
-   <td><code>GetRepairRuns(ctx context.Context, searchOptions *RepairRunSearchOptions) ([]*RepairRun, error)</code>
+   <td><code>RepairRuns(ctx context.Context, searchOptions *RepairRunSearchOptions) ([]*RepairRun, error)</code>
    </td>
    <td>
    </td>
@@ -363,7 +367,7 @@ type Endpoint struct {
   <tr>
    <td><code>GET /repair_run/{id}</code>
    </td>
-   <td><code>GetRepairRun(ctx context.Context, repairRunId uuid.UUID) (*RepairRun, error)</code>
+   <td><code>RepairRun(ctx context.Context, repairRunId uuid.UUID) (*RepairRun, error)</code>
    </td>
    <td>
    </td>
@@ -414,7 +418,7 @@ type Endpoint struct {
   <tr>
    <td><code>GET /repair_run/{id}/segments</code>
    </td>
-   <td><code>GetRepairRunSegments(ctx context.Context, repairRunId uuid.UUID) ([]*RepairSegment, error)</code>
+   <td><code>RepairRunSegments(ctx context.Context, repairRunId uuid.UUID) ([]*RepairSegment, error)</code>
    </td>
    <td>
    </td>
@@ -599,7 +603,7 @@ type RepairRunCreateOptions struct {
   <tr>
    <td><code>GET /repair_schedule</code>
    </td>
-   <td><code>GetRepairSchedules(ctx context.Context, searchOptions *RepairScheduleSearchOptions) ([]*RepairSchedule, error)</code>
+   <td><code>RepairSchedules(ctx context.Context, searchOptions *RepairScheduleSearchOptions) ([]*RepairSchedule, error)</code>
    </td>
    <td>Already present in the current PR #3. 
    </td>
@@ -607,7 +611,7 @@ type RepairRunCreateOptions struct {
   <tr>
    <td><code>GET /repair_schedule/{id}</code>
    </td>
-   <td><code>GetRepairSchedule(ctx context.Context, repairScheduleId uuid.UUID) (*RepairSchedule, error)</code>
+   <td><code>RepairSchedule(ctx context.Context, repairScheduleId uuid.UUID) (*RepairSchedule, error)</code>
    </td>
    <td>
    </td>
@@ -647,7 +651,7 @@ type RepairRunCreateOptions struct {
   <tr>
    <td><code>GET /repair_schedule/{clusterName}/{id}/percent_repaired</code>
    </td>
-   <td><code>GetRepairSchedulePercentRepaired(ctx context.Context, cluster string, repairScheduleId uuid.UUID) ([]*PercentRepairedMetric, error)</code>
+   <td><code>RepairSchedulePercentRepaired(ctx context.Context, cluster string, repairScheduleId uuid.UUID) ([]*PercentRepairedMetric, error)</code>
    </td>
    <td>
    </td>
@@ -766,7 +770,7 @@ Methods in this resource come in pairs: one for a specific node, one for a clust
   <tr>
    <td><code>GET /snapshot/{clusterName}/{host}</code>
    </td>
-   <td><code>GetNodeSnapshots(ctx context.Context, cluster string, node string) (*[]Snapshot, error)</code>
+   <td><code>NodeSnapshots(ctx context.Context, cluster string, node string) (*[]Snapshot, error)</code>
    </td>
    <td>
    </td>
@@ -774,7 +778,7 @@ Methods in this resource come in pairs: one for a specific node, one for a clust
   <tr>
    <td><code>GET /snapshot/cluster/{clusterName}</code>
    </td>
-   <td><code>GetClusterSnapshots(ctx context.Context, cluster string) (*[]Snapshot, error)</code>
+   <td><code>ClusterSnapshots(ctx context.Context, cluster string) (*[]Snapshot, error)</code>
    </td>
    <td> 
    </td>
