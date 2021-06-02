@@ -28,7 +28,7 @@ type Client interface {
 	DeleteCluster(ctx context.Context, cluster string) error
 
 	// GetRepairRuns returns a list of repair runs, optionally filtering according to the provided search options.
-	GetRepairRuns(ctx context.Context, searchOptions *RepairRunSearchOptions) ([]*RepairRun, error)
+	GetRepairRuns(ctx context.Context, searchOptions *RepairRunSearchOptions) (map[uuid.UUID]*RepairRun, error)
 
 	// GetRepairRun returns a repair run object identified by its id.
 	GetRepairRun(ctx context.Context, repairRunId uuid.UUID) (*RepairRun, error)
@@ -58,7 +58,7 @@ type Client interface {
 	ResumeRepairRun(ctx context.Context, repairRunId uuid.UUID) error
 
 	// GetRepairRunSegments returns the list of segments of a repair run identified by its id.
-	GetRepairRunSegments(ctx context.Context, repairRunId uuid.UUID) ([]*RepairSegment, error)
+	GetRepairRunSegments(ctx context.Context, repairRunId uuid.UUID) (map[uuid.UUID]*RepairSegment, error)
 
 	// AbortRepairRunSegment aborts a running segment and puts it back in NOT_STARTED state. The segment will be
 	// processed again later during the lifetime of the repair run.
