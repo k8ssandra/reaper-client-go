@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/go-querystring/query"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 func (c *client) doGet(
 	ctx context.Context,
 	path string,
-	queryParams *url.Values,
+	queryParams interface{},
 	expectedStatuses ...int,
 ) (*http.Response, error) {
 	return c.doRequest(ctx, http.MethodGet, path, queryParams, nil, expectedStatuses...)
@@ -24,8 +25,8 @@ func (c *client) doGet(
 func (c *client) doPost(
 	ctx context.Context,
 	path string,
-	queryParams *url.Values,
-	formData *url.Values,
+	queryParams interface{},
+	formData interface{},
 	expectedStatuses ...int,
 ) (*http.Response, error) {
 	return c.doRequest(ctx, http.MethodPost, path, queryParams, formData, expectedStatuses...)
@@ -34,8 +35,8 @@ func (c *client) doPost(
 func (c *client) doPut(
 	ctx context.Context,
 	path string,
-	queryParams *url.Values,
-	formData *url.Values,
+	queryParams interface{},
+	formData interface{},
 	expectedStatuses ...int,
 ) (*http.Response, error) {
 	return c.doRequest(ctx, http.MethodPut, path, queryParams, formData, expectedStatuses...)
@@ -44,7 +45,7 @@ func (c *client) doPut(
 func (c *client) doDelete(
 	ctx context.Context,
 	path string,
-	queryParams *url.Values,
+	queryParams interface{},
 	expectedStatuses ...int,
 ) (*http.Response, error) {
 	return c.doRequest(ctx, http.MethodDelete, path, queryParams, nil, expectedStatuses...)
@@ -53,7 +54,7 @@ func (c *client) doDelete(
 func (c *client) doHead(
 	ctx context.Context,
 	path string,
-	queryParams *url.Values,
+	queryParams interface{},
 	expectedStatuses ...int,
 ) (*http.Response, error) {
 	return c.doRequest(ctx, http.MethodHead, path, queryParams, nil, expectedStatuses...)
@@ -63,26 +64,31 @@ func (c *client) doRequest(
 	ctx context.Context,
 	method string,
 	path string,
-	queryParams *url.Values,
-	formData *url.Values,
+	queryParams interface{},
+	formData interface{},
 	expectedStatuses ...int,
 ) (*http.Response, error) {
 	u := c.resolveURL(path)
 	if queryParams != nil {
-		u.RawQuery = queryParams.Encode()
+		queryValues, err := c.paramSourceToValues(queryParams)
+		if err != nil {
+			return nil, err
+		}
+		u.RawQuery = queryValues.Encode()
 	}
 	var body string
 	var bodyReader io.Reader
 	if formData != nil {
-		body = formData.Encode()
+		formValues, err := c.paramSourceToValues(formData)
+		if err != nil {
+			return nil, err
+		}
+		body = formValues.Encode()
 		bodyReader = strings.NewReader(body)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), bodyReader)
 	if err != nil {
 		return nil, err
-	}
-	if len(body) > 0 {
-		c.addFormHeaders(req, body)
 	}
 	// TODO authentication headers
 	c.addCommonHeaders(req)
@@ -91,6 +97,45 @@ func (c *client) doRequest(
 		err = c.checkResponseStatus(res, expectedStatuses...)
 	}
 	return res, err
+}
+
+func (c *client) mergeParamSources(paramSources ...interface{}) (*url.Values, error) {
+	mergedValues := url.Values{}
+	for _, paramSource := range paramSources {
+		paramSourceValues, err := c.paramSourceToValues(paramSource)
+		if err != nil {
+			return nil, err
+		}
+		for key, values := range *paramSourceValues {
+			mergedValues[key] = append(mergedValues[key], values...)
+		}
+	}
+	return &mergedValues, nil
+}
+
+func (c *client) paramSourceToValues(paramSource interface{}) (*url.Values, error) {
+	if paramSource == nil {
+		return nil, nil
+	}
+	if values, ok := paramSource.(*url.Values); ok {
+		return values, nil
+	}
+	if m, ok := paramSource.(map[string]string); ok {
+		values := make(url.Values)
+		for key, val := range m {
+			values.Add(key, val)
+		}
+		return &values, nil
+	}
+	if m, ok := paramSource.(map[string][]string); ok {
+		values := url.Values(m)
+		return &values, nil
+	}
+	values, err := query.Values(paramSource)
+	if err != nil {
+		return nil, err
+	}
+	return &values, nil
 }
 
 func (c *client) resolveURL(path string) *url.URL {

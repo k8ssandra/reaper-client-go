@@ -1,10 +1,13 @@
 package testenv
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -13,7 +16,7 @@ import (
 
 var cassandraReadyStatusRegex = regexp.MustCompile(`\nUN `)
 
-// Stops all services declared in docker-compose.yaml. This function blocks until the
+// StopServices stops all services declared in docker-compose.yaml. This function blocks until the
 // operation completes.
 func StopServices(t *testing.T) error {
 	t.Log("stopping services")
@@ -21,29 +24,29 @@ func StopServices(t *testing.T) error {
 	return stopServices.Run()
 }
 
-// Starts all services declared in docker-compose.yaml in detached mode.
+// StartServices starts all services declared in docker-compose.yaml in detached mode.
 func StartServices(t *testing.T) error {
 	t.Log("starting services")
 	startServices := exec.Command("docker-compose", "up", "-d")
 	return startServices.Run()
 }
 
-// Deletes all contents under PROJECT_ROOT/data/cassandra
+// PurgeCassandraDataDir deletes all contents under PROJECT_ROOT/data/cassandra
 func PurgeCassandraDataDir(t *testing.T) error {
-	t.Log("puring cassandra data dir")
-	cassandrDataDir, err := filepath.Abs("../data/cassandra")
+	t.Log("purging cassandra data dir")
+	cassandraDataDir, err := filepath.Abs("../data/cassandra")
 	if err != nil {
 		return fmt.Errorf("failed to get path of cassandra data dir: %w", err)
 	}
 
-	if err := os.RemoveAll(cassandrDataDir); err != nil {
-		return fmt.Errorf("failed to purge %s: %w", cassandrDataDir, err)
+	if err := os.RemoveAll(cassandraDataDir); err != nil {
+		return fmt.Errorf("failed to purge %s: %w", cassandraDataDir, err)
 	}
 
 	return nil
 }
 
-// A convenience function that does the following:
+// ResetServices is a convenience function that does the following:
 //
 //    * stop all services
 //    * purge cassandra data directory
@@ -100,38 +103,188 @@ func checkCassandraStatus(seed string) ([]byte, error) {
 	return bytes, nil
 }
 
-// Runs nodetool status against the seed node. Blocks until numNodes nodes report a status of UN.
-// This function will perform a max of 10 checks with a delay of one second between retries.
-func WaitForClusterReady(t *testing.T, seed string, numNodes int) error {
-	// TODO make the number of checks configurable
-	for i := 0; i < 10; i++ {
-		t.Logf("checking cassandra cluster status with seed %s", seed)
-		bytes, err := checkCassandraStatus(seed)
-		if err == nil {
-			matches := cassandraReadyStatusRegex.FindAll(bytes, -1)
-			if matches != nil && len(matches) == numNodes {
-				return nil
+// WaitForClusterReady runs nodetool status against the seed node. Blocks until numNodes nodes report a status of UN.
+func WaitForClusterReady(ctx context.Context, seed string, numNodes int) error {
+	// TODO make the timeout configurable
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	for {
+		select {
+		default:
+			b, err := checkCassandraStatus(seed)
+			if err == nil {
+				matches := cassandraReadyStatusRegex.FindAll(b, -1)
+				if matches != nil && len(matches) == numNodes {
+					return nil
+				}
 			}
+			// TODO make the duration configurable
+			time.Sleep(time.Second)
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for nodetool status with seed (%s)", seed)
 		}
-		// TODO make the duration configurable
-		time.Sleep(1 * time.Second)
 	}
-
-	return fmt.Errorf("timed out waiting for nodetool status with seed (%s)", seed)
 }
 
-// Adds a cluster to Reaper without using the client.
-func AddCluster(t *testing.T, cluster string, seed string) error {
-	t.Logf("registering cluster %s", cluster)
+// AddCluster adds a cluster to Reaper without using the client.
+func AddCluster(ctx context.Context, cluster string, seed string) error {
 	relPath := "../scripts/add-cluster.sh"
-	path, err := filepath.Abs(relPath)
+	p, err := filepath.Abs(relPath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path of (%s): %w", relPath, err)
 	}
-	script := exec.Command(path, cluster, seed)
-	if err = script.Run(); err != nil {
-		return fmt.Errorf("add cluster script (%s) failed with seed (%s): %w", path, seed, err)
-	}
+	return exec.CommandContext(ctx, p, cluster, seed).Run()
+}
 
-	return nil
+func WaitForCqlReady(ctx context.Context, seed string) error {
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	for {
+		select {
+		default:
+			err := checkCqlStatus(ctx, seed)
+			if err == nil {
+				return nil
+			}
+			time.Sleep(time.Second)
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for CQL readiness with seed (%s)", seed)
+		}
+	}
+}
+
+func checkCqlStatus(ctx context.Context, node string) error {
+	s := "SELECT release_version FROM system.local"
+	checkStatus := exec.CommandContext(
+		ctx,
+		"docker-compose",
+		"exec",
+		"-T",
+		node,
+		"cqlsh",
+		"-u",
+		"reaperUser",
+		"-p",
+		"reaperPass",
+		"-e",
+		s,
+		node,
+		"9042",
+	)
+	return checkStatus.Run()
+}
+
+func CreateKeyspace(ctx context.Context, node string, keyspace string, rf int) error {
+	stmt := fmt.Sprintf(
+		"CREATE KEYSPACE IF NOT EXISTS \"%s\" "+
+			"WITH replication = {'class':'NetworkTopologyStrategy', 'datacenter1':%d} "+
+			"AND durable_writes = true",
+		keyspace,
+		rf,
+	)
+	createKeyspace := exec.CommandContext(
+		ctx,
+		"docker-compose",
+		"exec",
+		"-T",
+		node,
+		"cqlsh",
+		"-u",
+		"reaperUser",
+		"-p",
+		"reaperPass",
+		"-e",
+		stmt,
+		node,
+		"9042",
+	)
+	return createKeyspace.Run()
+}
+
+func CreateTable(ctx context.Context, node string, keyspace string, table string) error {
+	stmt := fmt.Sprintf(
+		"CREATE TABLE IF NOT EXISTS \"%s\".\"%s\" "+
+			"(pk int, cc timeuuid, v text, "+
+			"PRIMARY KEY (pk, cc))",
+		keyspace,
+		table,
+	)
+	createTable := exec.CommandContext(
+		ctx,
+		"docker-compose",
+		"exec",
+		"-T",
+		node,
+		"cqlsh",
+		"-u",
+		"reaperUser",
+		"-p",
+		"reaperPass",
+		"-e",
+		stmt,
+		node,
+		"9042",
+	)
+	return createTable.Run()
+}
+
+func CreateCqlInsertScript(keyspace string, table string) (*os.File, error) {
+	script, err := ioutil.TempFile(os.TempDir(), "insert-*.cql")
+	if err != nil {
+		return nil, err
+	}
+	defer func(script *os.File) {
+		_ = script.Close()
+	}(script)
+	for pk := 0; pk < 1000; pk++ {
+		insert := fmt.Sprintf(
+			"INSERT INTO \"%s\".\"%s\" (pk, cc, v) VALUES (%d, now(), '%s');\n",
+			keyspace,
+			table,
+			pk,
+			randomString(10, 100),
+		)
+		if _, err = script.WriteString(insert); err != nil {
+			return nil, err
+		}
+	}
+	return script, nil
+}
+
+func ExecuteCqlScript(ctx context.Context, node string, script *os.File) error {
+	remotePath := "/tmp/" + path.Base(script.Name())
+	copyScript := exec.Command("docker", "cp", script.Name(), "reaper-client-go_"+node+"_1:"+remotePath)
+	err := copyScript.Run()
+	if err != nil {
+		return err
+	}
+	execScript := exec.CommandContext(
+		ctx,
+		"docker-compose",
+		"exec",
+		"-T",
+		node,
+		"cqlsh",
+		"-u",
+		"reaperUser",
+		"-p",
+		"reaperPass",
+		"-f",
+		remotePath,
+		node,
+		"9042",
+	)
+	return execScript.Run()
+}
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+func randomString(min int, max int) string {
+	rand.Seed(time.Now().UnixNano())
+	length := rand.Intn(max-min+1) + min
+	s := make([]rune, length)
+	for i := range s {
+		s[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(s)
 }
