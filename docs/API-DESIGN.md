@@ -76,10 +76,6 @@ However this page is not entirely up to date. A more exhaustive list is as follo
     4. Use `big.Int` for Java `BigInteger`
     5. Use `time.Time` for JodaTime `DateTime` structs
         1. Deserialization will require a custom JSON unmarshaller because `DateTime` fields are sent as millis since the Epoch
-        2. Possible solution: `UnixTimeMillis`:
-
-				type UnixTimeMillis time.Time
-				func (t *UnixTimeMillis) UnmarshalJSON(data []byte) error {...}
         
     6. Use `github.com/google/go-querystring` to simplify creation of query strings from structs for optional REST parameters.
     7. Use string-based types to capture Java enums, e.g. 
