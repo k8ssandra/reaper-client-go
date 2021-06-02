@@ -375,7 +375,7 @@ type Endpoint struct {
   <tr>
    <td><code>POST /repair_run</code>
    </td>
-   <td><code>CreateRepairRun(ctx context.Context, cluster string,, keyspace string, owner string, options *RepairRunCreateOptions) (*RepairRun, error)</code>
+   <td><code>CreateRepairRun(ctx context.Context, cluster string, keyspace string, owner string, options *RepairRunCreateOptions) (uuid.UUID, error)</code>
    </td>
    <td>
    </td>
@@ -426,7 +426,7 @@ type Endpoint struct {
   <tr>
    <td><code>POST /repair_run/{id}/segments/abort/{segment_id}</code>
    </td>
-   <td><code>AbortRepairRunSegment(ctx context.Context, repairRunId uuid.UUID, segmentId uuid.UUID) (*RepairSegment, error)</code>
+   <td><code>AbortRepairRunSegment(ctx context.Context, repairRunId uuid.UUID, segmentId uuid.UUID) error</code>
    </td>
    <td>
    </td>
@@ -619,7 +619,7 @@ type RepairRunCreateOptions struct {
   <tr>
    <td><code>POST /repair_schedule</code>
    </td>
-   <td><code>CreateRepairSchedule(ctx context.Context, cluster string, keyspace string, owner string, scheduleDaysBetween int, options *RepairScheduleCreateOptions) (*RepairSchedule, error)</code>
+   <td><code>CreateRepairSchedule(ctx context.Context, cluster string, keyspace string, owner string, scheduleDaysBetween int, options *RepairScheduleCreateOptions) (uuid.UUID, error)</code>
    </td>
    <td>
    </td>
@@ -627,7 +627,7 @@ type RepairRunCreateOptions struct {
   <tr>
    <td><code>POST /repair_schedule/start/{id}</code>
    </td>
-   <td><code>StartRepairSchedule(ctx context.Context, repairScheduleId uuid.UUID) (*RepairSchedule,error)</code>
+   <td><code>StartRepairSchedule(ctx context.Context, repairScheduleId uuid.UUID) error</code>
    </td>
    <td>
    </td>
@@ -770,7 +770,7 @@ Methods in this resource come in pairs: one for a specific node, one for a clust
   <tr>
    <td><code>GET /snapshot/{clusterName}/{host}</code>
    </td>
-   <td><code>NodeSnapshots(ctx context.Context, cluster string, node string) (*[]Snapshot, error)</code>
+   <td><code>NodeSnapshots(ctx context.Context, cluster string, node string) ([]*Snapshot, error)</code>
    </td>
    <td>
    </td>
@@ -778,7 +778,7 @@ Methods in this resource come in pairs: one for a specific node, one for a clust
   <tr>
    <td><code>GET /snapshot/cluster/{clusterName}</code>
    </td>
-   <td><code>ClusterSnapshots(ctx context.Context, cluster string) (*[]Snapshot, error)</code>
+   <td><code>ClusterSnapshots(ctx context.Context, cluster string) ([]*Snapshot, error)</code>
    </td>
    <td> 
    </td>
@@ -786,7 +786,7 @@ Methods in this resource come in pairs: one for a specific node, one for a clust
   <tr>
    <td><code>POST /snapshot/{clusterName}/{node}</code>
    </td>
-   <td><code>CreateNodeSnapshot(ctx context.Context, cluster string, node string, options *NodeSnapshotCreateOptions) (*[]Snapshot, error)</code>
+   <td><code>CreateNodeSnapshot(ctx context.Context, cluster string, node string, options *NodeSnapshotCreateOptions) (string, error)</code>
    </td>
    <td>
    </td>
@@ -794,7 +794,7 @@ Methods in this resource come in pairs: one for a specific node, one for a clust
   <tr>
    <td><code><em>POST /snapshot/cluster/{clusterName}</em></code>
    </td>
-   <td><code>CreateClusterSnapshot(ctx context.Context, cluster string, options *ClusterSnapshotCreateOptions) error</code>
+   <td><code>CreateClusterSnapshot(ctx context.Context, cluster string, options *ClusterSnapshotCreateOptions) (string, error)</code>
    </td>
    <td>
    </td>
