@@ -482,8 +482,8 @@ type RepairSegment struct {
   FailCount    int                
   State        RepairSegmentState 
   Coordinator  string             
-  StartTime    *UnixTimeMillis    
-  EndTime      *UnixTimeMillis    
+  StartTime    *time.Time    
+  EndTime      *time.Time    
   Replicas     map[string]string  
 }
 
@@ -833,7 +833,7 @@ type Snapshot struct {
   SizeOnDisk   float64         
   Owner        string          
   Cause        string          
-  CreationTime *UnixTimeMillis 
+  CreationTime *time.Time
 }
 
 type NodeSnapshotCreateOptions struct {
