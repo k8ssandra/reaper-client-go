@@ -424,6 +424,22 @@ type Endpoint struct {
    </td>
   </tr>
   <tr>
+   <td><code>PUT /repair_run/{id}/state/{state}</code>
+   </td>
+   <td><code>AbortRepairRun(ctx context.Context, repairRunId uuid.UUID) error</code>
+   </td>
+   <td>Endpoint will be called with <code>state = ABORTED</code>
+   </td>
+  </tr>
+  <tr>
+   <td><code>GET /repair_run/{id}/segments</code>
+   </td>
+   <td><code>RepairRunSegments(ctx context.Context, repairRunId uuid.UUID) ([]*RepairSegment, error)</code>
+   </td>
+   <td>
+   </td>
+  </tr>
+  <tr>
    <td><code>POST /repair_run/{id}/segments/abort/{segment_id}</code>
    </td>
    <td><code>AbortRepairRunSegment(ctx context.Context, repairRunId uuid.UUID, segmentId uuid.UUID) error</code>
