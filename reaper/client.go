@@ -51,11 +51,14 @@ type Client interface {
 	// in state “ERROR”, picking up where it left off.
 	StartRepairRun(ctx context.Context, repairRunId uuid.UUID) error
 
-	// PauseRepairRun pauses a repair run identified by its id.
+	// PauseRepairRun pauses a repair run identified by its id. The repair run must be in RUNNING state.
 	PauseRepairRun(ctx context.Context, repairRunId uuid.UUID) error
 
 	// ResumeRepairRun is an alias to StartRepairRun.
 	ResumeRepairRun(ctx context.Context, repairRunId uuid.UUID) error
+
+	// AbortRepairRun aborts a repair run identified bu its id. The repair run must not be in ERROR state.
+	AbortRepairRun(ctx context.Context, repairRunId uuid.UUID) error
 
 	// GetRepairRunSegments returns the list of segments of a repair run identified by its id.
 	GetRepairRunSegments(ctx context.Context, repairRunId uuid.UUID) (map[uuid.UUID]*RepairSegment, error)

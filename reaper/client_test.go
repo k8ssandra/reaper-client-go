@@ -63,6 +63,7 @@ func TestClient(t *testing.T) {
 	t.Run("DeleteRepairRunNotFound", run(client, testDeleteRepairRunNotFound))
 	t.Run("CreateStartFinishRepairRun", run(client, testCreateStartFinishRepairRun))
 	t.Run("CreateStartPauseUpdateResumeRepairRun", run(client, testCreateStartPauseUpdateResumeRepairRun))
+	t.Run("CreateAbortRepairRun", run(client, testCreateAbortRepairRun))
 	t.Run("GetRepairRunSegments", run(client, testGetRepairRunSegments))
 	t.Run("AbortRepairRunSegments", run(client, testAbortRepairRunSegments))
 	t.Run("PurgeRepairRun", run(client, testPurgeRepairRun))

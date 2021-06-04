@@ -185,6 +185,21 @@ func testCreateStartPauseUpdateResumeRepairRun(t *testing.T, client Client) {
 	}
 }
 
+func testCreateAbortRepairRun(t *testing.T, client Client) {
+	run := createRepairRun(t, client, "cluster-1")
+	defer deleteRepairRun(t, client, run)
+	err := client.StartRepairRun(context.Background(), run.Id)
+	require.Nil(t, err)
+	started, err := client.GetRepairRun(context.Background(), run.Id)
+	require.Nil(t, err)
+	assert.Equal(t, RepairRunStateRunning, started.State)
+	err = client.AbortRepairRun(context.Background(), run.Id)
+	require.Nil(t, err)
+	aborted, err := client.GetRepairRun(context.Background(), run.Id)
+	require.Nil(t, err)
+	assert.Equal(t, RepairRunStateAborted, aborted.State)
+}
+
 func testGetRepairRunSegments(t *testing.T, client Client) {
 	run := createRepairRun(t, client, "cluster-1")
 	defer deleteRepairRun(t, client, run)

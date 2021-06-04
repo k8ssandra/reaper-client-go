@@ -285,6 +285,15 @@ func (c *client) ResumeRepairRun(ctx context.Context, repairRunId uuid.UUID) err
 	return fmt.Errorf("failed to resume repair run %v: %w", repairRunId, err)
 }
 
+func (c *client) AbortRepairRun(ctx context.Context, repairRunId uuid.UUID) error {
+	path := fmt.Sprint("/repair_run/", repairRunId, "/state/", RepairRunStateAborted)
+	_, err := c.doPut(ctx, path, nil, nil, http.StatusOK, http.StatusNoContent)
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("failed to abort repair run %v: %w", repairRunId, err)
+}
+
 func (c *client) GetRepairRunSegments(ctx context.Context, repairRunId uuid.UUID) (map[uuid.UUID]*RepairSegment, error) {
 	path := fmt.Sprint("/repair_run/", repairRunId, "/segments")
 	res, err := c.doGet(ctx, path, nil, http.StatusOK)
