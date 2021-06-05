@@ -808,7 +808,7 @@ Methods in this resource come in pairs: one for a specific node, one for a clust
    </td>
   </tr>
   <tr>
-   <td><code><em>POST /snapshot/cluster/{clusterName}</em></code>
+   <td><code>POST /snapshot/cluster/{clusterName</code>
    </td>
    <td><code>CreateClusterSnapshot(ctx context.Context, cluster string, options *ClusterSnapshotCreateOptions) (string, error)</code>
    </td>
