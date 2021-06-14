@@ -13,25 +13,25 @@ import (
 )
 
 type RepairRun struct {
-	Id                  uuid.UUID         `json:"id"`
-	Cluster             string            `json:"cluster_name"`
-	Owner               string            `json:"owner"`
-	Keyspace            string            `json:"keyspace_name"`
-	Tables              []string          `json:"column_families"`
-	Cause               string            `json:"cause"`
-	State               RepairRunState    `json:"state"`
-	Intensity           Intensity         `json:"intensity"`
-	IncrementalRepair   bool              `json:"incremental_repair"`
-	SegmentCountPerNode int               `json:"total_segments"`
-	RepairParallelism   RepairParallelism `json:"repair_parallelism"`
-	SegmentsRepaired    int               `json:"segments_repaired"`
-	LastEvent           string            `json:"last_event"`
-	Duration            string            `json:"duration"`
-	Nodes               []string          `json:"nodes"`
-	Datacenters         []string          `json:"datacenters"`
-	IgnoredTables       []string          `json:"blacklisted_tables"`
-	RepairThreadCount   int               `json:"repair_thread_count"`
-	RepairUnitId        uuid.UUID         `json:"repair_unit_id"`
+	Id                uuid.UUID         `json:"id"`
+	Cluster           string            `json:"cluster_name"`
+	Owner             string            `json:"owner"`
+	Keyspace          string            `json:"keyspace_name"`
+	Tables            []string          `json:"column_families"`
+	Cause             string            `json:"cause"`
+	State             RepairRunState    `json:"state"`
+	Intensity         Intensity         `json:"intensity"`
+	IncrementalRepair bool              `json:"incremental_repair"`
+	TotalSegments     int               `json:"total_segments"`
+	RepairParallelism RepairParallelism `json:"repair_parallelism"`
+	SegmentsRepaired  int               `json:"segments_repaired"`
+	LastEvent         string            `json:"last_event"`
+	Duration          string            `json:"duration"`
+	Nodes             []string          `json:"nodes"`
+	Datacenters       []string          `json:"datacenters"`
+	IgnoredTables     []string          `json:"blacklisted_tables"`
+	RepairThreadCount int               `json:"repair_thread_count"`
+	RepairUnitId      uuid.UUID         `json:"repair_unit_id"`
 }
 
 func (r RepairRun) String() string {

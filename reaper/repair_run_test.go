@@ -300,10 +300,10 @@ func createRepairRun(t *testing.T, client Client, cluster string) *RepairRun {
 		"Alice",
 		&RepairRunCreateOptions{
 			Tables:              []string{"table1", "table2"},
-			SegmentCountPerNode: 1,
+			SegmentCountPerNode: 5,
 			RepairParallelism:   RepairParallelismParallel,
 			Intensity:           0.1,
-			IncrementalRepair:   true,
+			IncrementalRepair:   false,
 			RepairThreadCount:   4,
 			Cause:               "testing repair runs",
 		},
@@ -323,9 +323,9 @@ func checkRepairRun(t *testing.T, cluster string, actual *RepairRun) *RepairRun 
 	assert.ElementsMatch(t, []string{"table1", "table2"}, actual.Tables)
 	assert.Equal(t, RepairRunStateNotStarted, actual.State)
 	assert.InDelta(t, 0.1, actual.Intensity, 0.001)
-	assert.Equal(t, true, actual.IncrementalRepair)
-	// FIXME segment count per node is always 2
-	// assert.Equal(t, 1, actual.SegmentCountPerNode)
+	assert.False(t, actual.IncrementalRepair)
+	// Can't really guess the total
+	assert.GreaterOrEqual(t, actual.TotalSegments, 10)
 	assert.Equal(t, RepairParallelismParallel, actual.RepairParallelism)
 	assert.Equal(t, 0, actual.SegmentsRepaired)
 	assert.Equal(t, "no events", actual.LastEvent)
