@@ -5,9 +5,8 @@
 
 The full REST API is documented here: [http://cassandra-reaper.io/docs/api](http://cassandra-reaper.io/docs/api). 
 
-However this page is not entirely up to date. A more exhaustive list is as follows; implemented methods are shown in bold (even if only partially implemented):
-
-
+However, this page is not entirely up to date. A more exhaustive list is as follows; implemented methods are shown in 
+bold (even if only partially implemented):
 
 *   Ping
     *   <b>`GET /ping`</b>
@@ -16,6 +15,8 @@ However this page is not entirely up to date. A more exhaustive list is as follo
     *   `POST /login`
     *   `POST /logout`
     *   `GET /jwt`
+*   Crypto
+    *   `GET /crypto/encrypt/{text}`
 *   Cluster
     *   <b>`GET /cluster`</b>
     *   <b>`POST /cluster`</b>
@@ -76,7 +77,6 @@ However this page is not entirely up to date. A more exhaustive list is as follo
     4. Use `big.Int` for Java `BigInteger`
     5. Use `time.Time` for JodaTime `DateTime` structs
         1. Deserialization will require a custom JSON unmarshaller because `DateTime` fields are sent as millis since the Epoch
-        
     6. Use `github.com/google/go-querystring` to simplify creation of query strings from structs for optional REST parameters.
     7. Use string-based types to capture Java enums, e.g. 
 	    
