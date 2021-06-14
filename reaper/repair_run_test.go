@@ -146,7 +146,6 @@ func testCreateStartFinishRepairRun(t *testing.T, client Client) {
 	assert.Equal(t, RepairRunStateDone, done.State)
 	segments, err := client.GetRepairRunSegments(context.Background(), done.Id)
 	require.Nil(t, err)
-	assert.Len(t, segments, 2)
 	for _, segment := range segments {
 		assert.Equal(t, RepairSegmentStateDone, segment.State)
 		assert.NotNil(t, segment.StartTime)
@@ -205,7 +204,6 @@ func testGetRepairRunSegments(t *testing.T, client Client) {
 	defer deleteRepairRun(t, client, run)
 	segments, err := client.GetRepairRunSegments(context.Background(), run.Id)
 	require.Nil(t, err)
-	assert.Len(t, segments, 2)
 	for _, segment := range segments {
 		assert.Equal(t, RepairSegmentStateNotStarted, segment.State)
 		assert.Nil(t, segment.StartTime)
@@ -229,7 +227,6 @@ func testGetRepairRunSegments(t *testing.T, client Client) {
 	} else {
 		segments, err = client.GetRepairRunSegments(context.Background(), run.Id)
 		require.Nil(t, err)
-		assert.Len(t, segments, 2)
 		for _, segment := range segments {
 			// some segments may be DONE or even RUNNING: cannot assert state here
 			assert.NotNil(t, segment.StartTime)
@@ -243,7 +240,6 @@ func testGetRepairRunSegments(t *testing.T, client Client) {
 	}
 	segments, err = client.GetRepairRunSegments(context.Background(), run.Id)
 	require.Nil(t, err)
-	assert.Len(t, segments, 2)
 	for _, segment := range segments {
 		assert.Equal(t, RepairSegmentStateDone, segment.State)
 		assert.NotNil(t, segment.StartTime)
@@ -268,7 +264,6 @@ func testAbortRepairRunSegments(t *testing.T, client Client) {
 	}
 	segments, err = client.GetRepairRunSegments(context.Background(), run.Id)
 	require.Nil(t, err)
-	require.Len(t, segments, 2)
 	for _, segment := range segments {
 		assert.True(t,
 			segment.State == RepairSegmentStateNotStarted ||
@@ -300,7 +295,7 @@ func createRepairRun(t *testing.T, client Client, cluster string) *RepairRun {
 		"Alice",
 		&RepairRunCreateOptions{
 			Tables:              []string{"table1", "table2"},
-			SegmentCountPerNode: 5,
+			SegmentCountPerNode: 3,
 			RepairParallelism:   RepairParallelismParallel,
 			Intensity:           0.1,
 			IncrementalRepair:   false,
@@ -325,7 +320,7 @@ func checkRepairRun(t *testing.T, cluster string, actual *RepairRun) *RepairRun 
 	assert.InDelta(t, 0.1, actual.Intensity, 0.001)
 	assert.False(t, actual.IncrementalRepair)
 	// Can't really guess the total
-	assert.GreaterOrEqual(t, actual.TotalSegments, 10)
+	assert.NotZero(t, actual.TotalSegments)
 	assert.Equal(t, RepairParallelismParallel, actual.RepairParallelism)
 	assert.Equal(t, 0, actual.SegmentsRepaired)
 	assert.Equal(t, "no events", actual.LastEvent)
@@ -349,7 +344,10 @@ func checkRepairRunSegment(t *testing.T, run *RepairRun, actual *RepairSegment) 
 func deleteRepairRun(t *testing.T, client Client, run *RepairRun) {
 	_ = client.PauseRepairRun(context.Background(), run.Id)
 	err := client.DeleteRepairRun(context.Background(), run.Id, "Alice")
-	if err != nil && strings.Contains(err.Error(), "is currently running") {
+	if err != nil {
+		assert.True(t,
+			strings.Contains(err.Error(), "is currently running") ||
+				strings.Contains(err.Error(), "has running segments"))
 		waitForRepairRun(t, client, run, RepairRunStateNotStarted)
 		err = client.DeleteRepairRun(context.Background(), run.Id, "Alice")
 	}
@@ -363,7 +361,7 @@ func waitForRepairRun(t *testing.T, client Client, run *RepairRun, state RepairR
 			actual, err := client.GetRepairRun(context.Background(), run.Id)
 			return err == nil && actual.State == state
 		},
-		5*time.Minute,
+		15*time.Minute,
 		5*time.Second,
 	)
 	actual, err := client.GetRepairRun(context.Background(), run.Id)
@@ -394,7 +392,7 @@ func waitForSegmentsStarted(t *testing.T, client Client, run *RepairRun) map[uui
 			}
 			return true
 		},
-		5*time.Minute,
+		15*time.Minute,
 		5*time.Second,
 	)
 	segments, err := client.GetRepairRunSegments(context.Background(), run.Id)
