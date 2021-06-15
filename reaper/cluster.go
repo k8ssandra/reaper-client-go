@@ -64,7 +64,7 @@ type RepairSchedule struct {
 	Intensity         float64   `json:"intensity,omitempty"`
 	ClusterName       string    `json:"cluster_name,omitempty"`
 	KeyspaceName      string    `json:"keyspace_name,omitempty"`
-	RepairParallism   string    `json:"repair_parallelism,omitempty"`
+	RepairParallelism string    `json:"repair_parallelism,omitempty"`
 	IncrementalRepair bool      `json:"incremental_repair,omitempty"`
 	ThreadCount       int       `json:"repair_thread_count,omitempty"`
 	UnitId            string    `json:"repair_unit_id,omitempty"`
