@@ -66,8 +66,8 @@ type RepairSchedule struct {
 	KeyspaceName      string    `json:"keyspace_name,omitempty"`
 	RepairParallelism string    `json:"repair_parallelism,omitempty"`
 	IncrementalRepair bool      `json:"incremental_repair,omitempty"`
-	ThreadCount       int       `json:"repair_thread_count,omitempty"`
-	UnitId            string    `json:"repair_unit_id,omitempty"`
+	RepairThreadCount int       `json:"repair_thread_count,omitempty"`
+	RepairUnitId      string    `json:"repair_unit_id,omitempty"`
 	DaysBetween       int       `json:"scheduled_days_between,omitempty"`
 	Created           time.Time `json:"creation_time,omitempty"`
 	Paused            time.Time `json:"pause_time,omitempty"`
