@@ -25,7 +25,7 @@ wait-for-reaper:
 .PHONY: test
 test:
 	@echo Running tests:
-	go test -v -race -cover ./reaper/...
+	go test -v -race -cover -timeout 30m ./reaper/...
 
 .PHONY: test-cleanup
 test-cleanup:
