@@ -192,7 +192,7 @@ type RepairRunCreateOptions struct {
 	RepairThreadCount int `url:"repairThreadCount,omitempty"`
 }
 
-func (c *client) GetRepairRuns(ctx context.Context, searchOptions *RepairRunSearchOptions) (map[uuid.UUID]*RepairRun, error) {
+func (c *client) RepairRuns(ctx context.Context, searchOptions *RepairRunSearchOptions) (map[uuid.UUID]*RepairRun, error) {
 	res, err := c.doGet(ctx, "/repair_run", searchOptions, http.StatusOK)
 	if err == nil {
 		repairRuns := make([]*RepairRun, 0)
@@ -208,7 +208,7 @@ func (c *client) GetRepairRuns(ctx context.Context, searchOptions *RepairRunSear
 	return nil, fmt.Errorf("failed to get repair runs: %w", err)
 }
 
-func (c *client) GetRepairRun(ctx context.Context, repairRunId uuid.UUID) (*RepairRun, error) {
+func (c *client) RepairRun(ctx context.Context, repairRunId uuid.UUID) (*RepairRun, error) {
 	path := fmt.Sprint("/repair_run/", repairRunId)
 	res, err := c.doGet(ctx, path, nil, http.StatusOK)
 	if err == nil {
@@ -294,7 +294,7 @@ func (c *client) AbortRepairRun(ctx context.Context, repairRunId uuid.UUID) erro
 	return fmt.Errorf("failed to abort repair run %v: %w", repairRunId, err)
 }
 
-func (c *client) GetRepairRunSegments(ctx context.Context, repairRunId uuid.UUID) (map[uuid.UUID]*RepairSegment, error) {
+func (c *client) RepairRunSegments(ctx context.Context, repairRunId uuid.UUID) (map[uuid.UUID]*RepairSegment, error) {
 	path := fmt.Sprint("/repair_run/", repairRunId, "/segments")
 	res, err := c.doGet(ctx, path, nil, http.StatusOK)
 	if err == nil {

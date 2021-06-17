@@ -27,11 +27,11 @@ type Client interface {
 
 	DeleteCluster(ctx context.Context, cluster string) error
 
-	// GetRepairRuns returns a list of repair runs, optionally filtering according to the provided search options.
-	GetRepairRuns(ctx context.Context, searchOptions *RepairRunSearchOptions) (map[uuid.UUID]*RepairRun, error)
+	// RepairRuns returns a list of repair runs, optionally filtering according to the provided search options.
+	RepairRuns(ctx context.Context, searchOptions *RepairRunSearchOptions) (map[uuid.UUID]*RepairRun, error)
 
-	// GetRepairRun returns a repair run object identified by its id.
-	GetRepairRun(ctx context.Context, repairRunId uuid.UUID) (*RepairRun, error)
+	// RepairRun returns a repair run object identified by its id.
+	RepairRun(ctx context.Context, repairRunId uuid.UUID) (*RepairRun, error)
 
 	// CreateRepairRun creates a new repair run for the given cluster and keyspace. Does not actually trigger the run:
 	// creating a repair run includes generating the repair segments. Returns the id of the newly-created repair run if
@@ -60,8 +60,8 @@ type Client interface {
 	// AbortRepairRun aborts a repair run identified bu its id. The repair run must not be in ERROR state.
 	AbortRepairRun(ctx context.Context, repairRunId uuid.UUID) error
 
-	// GetRepairRunSegments returns the list of segments of a repair run identified by its id.
-	GetRepairRunSegments(ctx context.Context, repairRunId uuid.UUID) (map[uuid.UUID]*RepairSegment, error)
+	// RepairRunSegments returns the list of segments of a repair run identified by its id.
+	RepairRunSegments(ctx context.Context, repairRunId uuid.UUID) (map[uuid.UUID]*RepairSegment, error)
 
 	// AbortRepairRunSegment aborts a running segment and puts it back in NOT_STARTED state. The segment will be
 	// processed again later during the lifetime of the repair run.

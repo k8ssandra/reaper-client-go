@@ -14,7 +14,7 @@ import (
 func testGetRepairRun(t *testing.T, client Client) {
 	expected := createRepairRun(t, client, "cluster-1")
 	defer deleteRepairRun(t, client, expected)
-	actual, err := client.GetRepairRun(
+	actual, err := client.RepairRun(
 		context.Background(),
 		expected.Id,
 	)
@@ -24,7 +24,7 @@ func testGetRepairRun(t *testing.T, client Client) {
 
 func testGetRepairRunNotFound(t *testing.T, client Client) {
 	nonExistentRepairRun, _ := uuid.NewUUID()
-	actual, err := client.GetRepairRun(
+	actual, err := client.RepairRun(
 		context.Background(),
 		nonExistentRepairRun,
 	)
@@ -42,7 +42,7 @@ func testGetRepairRunIgnoredTables(t *testing.T, client Client) {
 		&RepairRunCreateOptions{IgnoredTables: []string{"table2"}},
 	)
 	require.Nil(t, err)
-	repairRun, err := client.GetRepairRun(context.Background(), runId)
+	repairRun, err := client.RepairRun(context.Background(), runId)
 	assert.Nil(t, err)
 	assert.Equal(t, repairRun.Tables, []string{"table1"})
 	assert.Equal(t, repairRun.IgnoredTables, []string{"table2"})
@@ -55,7 +55,7 @@ func testGetRepairRuns(t *testing.T, client Client) {
 	run2 := createRepairRun(t, client, "cluster-2")
 	defer deleteRepairRun(t, client, run1)
 	defer deleteRepairRun(t, client, run2)
-	repairRuns, err := client.GetRepairRuns(context.Background(), nil)
+	repairRuns, err := client.RepairRuns(context.Background(), nil)
 	require.Nil(t, err)
 	assert.Len(t, repairRuns, 2)
 	assert.Contains(t, repairRuns, run1.Id)
@@ -67,7 +67,7 @@ func testGetRepairRunsFilteredByCluster(t *testing.T, client Client) {
 	run2 := createRepairRun(t, client, "cluster-2")
 	defer deleteRepairRun(t, client, run1)
 	defer deleteRepairRun(t, client, run2)
-	repairRuns, err := client.GetRepairRuns(
+	repairRuns, err := client.RepairRuns(
 		context.Background(),
 		&RepairRunSearchOptions{
 			Cluster: "cluster-1",
@@ -84,7 +84,7 @@ func testGetRepairRunsFilteredByKeyspace(t *testing.T, client Client) {
 	run2 := createRepairRun(t, client, "cluster-2")
 	defer deleteRepairRun(t, client, run1)
 	defer deleteRepairRun(t, client, run2)
-	repairRuns, err := client.GetRepairRuns(
+	repairRuns, err := client.RepairRuns(
 		context.Background(),
 		&RepairRunSearchOptions{
 			Keyspace: keyspace,
@@ -94,7 +94,7 @@ func testGetRepairRunsFilteredByKeyspace(t *testing.T, client Client) {
 	assert.Len(t, repairRuns, 2)
 	assert.Contains(t, repairRuns, run1.Id)
 	assert.Contains(t, repairRuns, run2.Id)
-	repairRuns, err = client.GetRepairRuns(
+	repairRuns, err = client.RepairRuns(
 		context.Background(),
 		&RepairRunSearchOptions{
 			Keyspace: "nonexistent_keyspace",
@@ -109,7 +109,7 @@ func testGetRepairRunsFilteredByState(t *testing.T, client Client) {
 	run2 := createRepairRun(t, client, "cluster-2")
 	defer deleteRepairRun(t, client, run1)
 	defer deleteRepairRun(t, client, run2)
-	repairRuns, err := client.GetRepairRuns(
+	repairRuns, err := client.RepairRuns(
 		context.Background(),
 		&RepairRunSearchOptions{
 			States: []RepairRunState{RepairRunStateNotStarted},
@@ -119,7 +119,7 @@ func testGetRepairRunsFilteredByState(t *testing.T, client Client) {
 	assert.Len(t, repairRuns, 2)
 	assert.Contains(t, repairRuns, run1.Id)
 	assert.Contains(t, repairRuns, run2.Id)
-	repairRuns, err = client.GetRepairRuns(
+	repairRuns, err = client.RepairRuns(
 		context.Background(),
 		&RepairRunSearchOptions{
 			States: []RepairRunState{RepairRunStateRunning, RepairRunStateDone},
@@ -132,7 +132,7 @@ func testGetRepairRunsFilteredByState(t *testing.T, client Client) {
 func testCreateDeleteRepairRun(t *testing.T, client Client) {
 	run := createRepairRun(t, client, "cluster-1")
 	deleteRepairRun(t, client, run)
-	repairRuns, err := client.GetRepairRuns(context.Background(), nil)
+	repairRuns, err := client.RepairRuns(context.Background(), nil)
 	require.Nil(t, err)
 	assert.Len(t, repairRuns, 0)
 }
@@ -144,7 +144,7 @@ func testCreateStartFinishRepairRun(t *testing.T, client Client) {
 	require.Nil(t, err)
 	done := waitForRepairRun(t, client, run, RepairRunStateDone)
 	assert.Equal(t, RepairRunStateDone, done.State)
-	segments, err := client.GetRepairRunSegments(context.Background(), done.Id)
+	segments, err := client.RepairRunSegments(context.Background(), done.Id)
 	require.Nil(t, err)
 	for _, segment := range segments {
 		assert.Equal(t, RepairSegmentStateDone, segment.State)
@@ -158,23 +158,23 @@ func testCreateStartPauseUpdateResumeRepairRun(t *testing.T, client Client) {
 	defer deleteRepairRun(t, client, run)
 	err := client.StartRepairRun(context.Background(), run.Id)
 	require.Nil(t, err)
-	started, err := client.GetRepairRun(context.Background(), run.Id)
+	started, err := client.RepairRun(context.Background(), run.Id)
 	require.Nil(t, err)
 	assert.Equal(t, RepairRunStateRunning, started.State)
 	err = client.PauseRepairRun(context.Background(), run.Id)
 	if err != nil {
 		// pause not possible because repair is DONE
 		require.Contains(t, err.Error(), "Transition DONE->PAUSED not supported")
-		done, err := client.GetRepairRun(context.Background(), run.Id)
+		done, err := client.RepairRun(context.Background(), run.Id)
 		require.Nil(t, err)
 		assert.Equal(t, RepairRunStateDone, done.State)
 	} else {
-		paused, err := client.GetRepairRun(context.Background(), run.Id)
+		paused, err := client.RepairRun(context.Background(), run.Id)
 		require.Nil(t, err)
 		assert.Equal(t, RepairRunStatePaused, paused.State)
 		err = client.UpdateRepairRun(context.Background(), run.Id, 0.5)
 		require.Nil(t, err)
-		updated, err := client.GetRepairRun(context.Background(), run.Id)
+		updated, err := client.RepairRun(context.Background(), run.Id)
 		require.Nil(t, err)
 		assert.InDelta(t, 0.5, updated.Intensity, 0.001)
 		err = client.ResumeRepairRun(context.Background(), run.Id)
@@ -189,12 +189,12 @@ func testCreateAbortRepairRun(t *testing.T, client Client) {
 	defer deleteRepairRun(t, client, run)
 	err := client.StartRepairRun(context.Background(), run.Id)
 	require.Nil(t, err)
-	started, err := client.GetRepairRun(context.Background(), run.Id)
+	started, err := client.RepairRun(context.Background(), run.Id)
 	require.Nil(t, err)
 	assert.Equal(t, RepairRunStateRunning, started.State)
 	err = client.AbortRepairRun(context.Background(), run.Id)
 	require.Nil(t, err)
-	aborted, err := client.GetRepairRun(context.Background(), run.Id)
+	aborted, err := client.RepairRun(context.Background(), run.Id)
 	require.Nil(t, err)
 	assert.Equal(t, RepairRunStateAborted, aborted.State)
 }
@@ -202,7 +202,7 @@ func testCreateAbortRepairRun(t *testing.T, client Client) {
 func testGetRepairRunSegments(t *testing.T, client Client) {
 	run := createRepairRun(t, client, "cluster-1")
 	defer deleteRepairRun(t, client, run)
-	segments, err := client.GetRepairRunSegments(context.Background(), run.Id)
+	segments, err := client.RepairRunSegments(context.Background(), run.Id)
 	require.Nil(t, err)
 	for _, segment := range segments {
 		assert.Equal(t, RepairSegmentStateNotStarted, segment.State)
@@ -225,7 +225,7 @@ func testGetRepairRunSegments(t *testing.T, client Client) {
 		// pause not possible because repair is DONE
 		require.Contains(t, err.Error(), "Transition DONE->PAUSED not supported")
 	} else {
-		segments, err = client.GetRepairRunSegments(context.Background(), run.Id)
+		segments, err = client.RepairRunSegments(context.Background(), run.Id)
 		require.Nil(t, err)
 		for _, segment := range segments {
 			// some segments may be DONE or even RUNNING: cannot assert state here
@@ -238,7 +238,7 @@ func testGetRepairRunSegments(t *testing.T, client Client) {
 		done := waitForRepairRun(t, client, run, RepairRunStateDone)
 		assert.Equal(t, RepairRunStateDone, done.State)
 	}
-	segments, err = client.GetRepairRunSegments(context.Background(), run.Id)
+	segments, err = client.RepairRunSegments(context.Background(), run.Id)
 	require.Nil(t, err)
 	for _, segment := range segments {
 		assert.Equal(t, RepairSegmentStateDone, segment.State)
@@ -262,7 +262,7 @@ func testAbortRepairRunSegments(t *testing.T, client Client) {
 			require.Contains(t, err.Error(), "Cannot abort segment on repair run with status DONE")
 		}
 	}
-	segments, err = client.GetRepairRunSegments(context.Background(), run.Id)
+	segments, err = client.RepairRunSegments(context.Background(), run.Id)
 	require.Nil(t, err)
 	for _, segment := range segments {
 		assert.True(t,
@@ -304,7 +304,7 @@ func createRepairRun(t *testing.T, client Client, cluster string) *RepairRun {
 		},
 	)
 	require.Nil(t, err)
-	repairRun, err := client.GetRepairRun(context.Background(), runId)
+	repairRun, err := client.RepairRun(context.Background(), runId)
 	require.Nil(t, err)
 	return checkRepairRun(t, cluster, repairRun)
 }
@@ -358,13 +358,13 @@ func waitForRepairRun(t *testing.T, client Client, run *RepairRun, state RepairR
 	success := assert.Eventually(
 		t,
 		func() bool {
-			actual, err := client.GetRepairRun(context.Background(), run.Id)
+			actual, err := client.RepairRun(context.Background(), run.Id)
 			return err == nil && actual.State == state
 		},
 		15*time.Minute,
 		5*time.Second,
 	)
-	actual, err := client.GetRepairRun(context.Background(), run.Id)
+	actual, err := client.RepairRun(context.Background(), run.Id)
 	require.Nil(t, err)
 	if success {
 		return actual
@@ -381,7 +381,7 @@ func waitForSegmentsStarted(t *testing.T, client Client, run *RepairRun) map[uui
 	success := assert.Eventually(
 		t,
 		func() bool {
-			segments, err := client.GetRepairRunSegments(context.Background(), run.Id)
+			segments, err := client.RepairRunSegments(context.Background(), run.Id)
 			if err != nil {
 				return false
 			}
@@ -395,7 +395,7 @@ func waitForSegmentsStarted(t *testing.T, client Client, run *RepairRun) map[uui
 		15*time.Minute,
 		5*time.Second,
 	)
-	segments, err := client.GetRepairRunSegments(context.Background(), run.Id)
+	segments, err := client.RepairRunSegments(context.Background(), run.Id)
 	require.Nil(t, err)
 	if success {
 		return segments
