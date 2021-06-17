@@ -2,23 +2,25 @@ package reaper
 
 import (
 	"context"
-	"testing"
-	"time"
-
+	"fmt"
 	"github.com/k8ssandra/reaper-client-go/testenv"
-	"github.com/stretchr/testify/assert"
+	"golang.org/x/sync/errgroup"
+	"net/url"
+	"os"
+	"testing"
 )
 
 const (
 	reaperURL = "http://localhost:8080"
+	keyspace  = "reaper_client_test"
 )
 
-type clientTest func(*testing.T, *Client)
+type clientTest func(*testing.T, Client)
 
-func run(client *Client, test clientTest) func (*testing.T) {
+func run(client Client, test clientTest) func(*testing.T) {
 	return func(t *testing.T) {
-		//name := runtime.FuncForPC(reflect.ValueOf(test).Pointer()).Name()
-		//t.Logf("running %s\n", name)
+		// name := runtime.FuncForPC(reflect.ValueOf(test).Pointer()).Name()
+		// t.Logf("running %s\n", name)
 		test(t, client)
 	}
 }
@@ -26,199 +28,162 @@ func run(client *Client, test clientTest) func (*testing.T) {
 func TestClient(t *testing.T) {
 	t.Log("starting test")
 
-	client, err := newClient(reaperURL)
-	if err != nil {
-		t.Fatalf("failed to create reaper client: (%s)", err)
-	}
+	u, _ := url.Parse(reaperURL)
+	client := NewClient(u)
 
-	if err = testenv.ResetServices(t); err != nil {
-		t.Fatalf("failed to reset docker services: %s", err)
-	}
+	ctx := context.Background()
 
-	if err = testenv.WaitForClusterReady(t,"cluster-1-node-0", 2); err != nil {
-		t.Fatalf("cluster-1 readiness check failed: %s", err)
-	}
-	if err = testenv.WaitForClusterReady(t,"cluster-2-node-0", 2); err != nil {
-		t.Fatalf("cluster-2 readiness check failed: %s", err)
-	}
-	if err = testenv.WaitForClusterReady(t,"cluster-3-node-0", 1); err != nil {
-		t.Fatalf("cluster-1 readiness check failed: %s", err)
-	}
+	prepareEnvironment(t, ctx)
 
-	isUp := false
-	for i := 0; i < 10; i++ {
-		t.Log("checking if reaper is ready")
-		if isUp, err = client.IsReaperUp(context.Background()); err == nil {
-			if isUp {
-				t.Log("reaper is ready!")
-				break
-			}
-		} else {
-			t.Logf("reaper readiness check failed: %s", err)
-		}
-		time.Sleep(6 * time.Second)
-	}
-	if !isUp {
-		t.Fatalf("reaper readiness check timed out")
-	}
+	t.Run("Ping", run(client, testIsReaperUp))
 
-	if err = testenv.AddCluster(t,"cluster-1", "cluster-1-node-0"); err != nil {
-		t.Fatalf("failed to add cluster-1: %s", err)
-	}
-	if err = testenv.AddCluster(t,"cluster-2", "cluster-2-node-0"); err != nil {
-		t.Fatalf("failed to add cluster-2: %s", err)
-	}
+	registerClusters(t, ctx)
+
+	t.Log("running Cluster resource tests...")
 
 	t.Run("GetClusterNames", run(client, testGetClusterNames))
 	t.Run("GetCluster", run(client, testGetCluster))
 	t.Run("GetClusterNotFound", run(client, testGetClusterNotFound))
 	t.Run("GetClusters", run(client, testGetClusters))
-	t.Run("GetClustersSync", run(client, testGetClustersSyc))
+	t.Run("GetClustersSync", run(client, testGetClustersSync))
 	t.Run("AddDeleteCluster", run(client, testAddDeleteCluster))
+
+	createFixtures(t, ctx)
+
+	t.Log("running RepairRun resource tests...")
+
+	t.Run("GetRepairRun", run(client, testGetRepairRun))
+	t.Run("GetRepairRunNotFound", run(client, testGetRepairRunNotFound))
+	t.Run("GetRepairRunIgnoredTables", run(client, testGetRepairRunIgnoredTables))
+	t.Run("GetRepairRuns", run(client, testGetRepairRuns))
+	t.Run("GetRepairRunsFilteredByCluster", run(client, testGetRepairRunsFilteredByCluster))
+	t.Run("GetRepairRunsFilteredByKeyspace", run(client, testGetRepairRunsFilteredByKeyspace))
+	t.Run("GetRepairRunsFilteredByState", run(client, testGetRepairRunsFilteredByState))
+	t.Run("CreateDeleteRepairRun", run(client, testCreateDeleteRepairRun))
+	t.Run("DeleteRepairRunNotFound", run(client, testDeleteRepairRunNotFound))
+	t.Run("CreateStartFinishRepairRun", run(client, testCreateStartFinishRepairRun))
+	t.Run("CreateStartPauseUpdateResumeRepairRun", run(client, testCreateStartPauseUpdateResumeRepairRun))
+	t.Run("CreateAbortRepairRun", run(client, testCreateAbortRepairRun))
+	t.Run("GetRepairRunSegments", run(client, testGetRepairRunSegments))
+	t.Run("AbortRepairRunSegments", run(client, testAbortRepairRunSegments))
+	t.Run("PurgeRepairRun", run(client, testPurgeRepairRun))
+
 }
 
-func testGetClusterNames(t *testing.T, client *Client) {
-	expected := []string{"cluster-1", "cluster-2"}
-
-	actual, err := client.GetClusterNames(context.TODO())
-	if err != nil {
-		t.Fatalf("failed to get cluster names: (%s)", err)
+func prepareEnvironment(t *testing.T, parent context.Context) {
+	if err := testenv.ResetServices(t); err != nil {
+		t.Fatalf("failed to reset docker services: %s", err)
 	}
-
-	assert.ElementsMatch(t, expected, actual)
-}
-
-func testGetCluster(t *testing.T, client *Client) {
-	name := "cluster-1"
-	cluster, err := client.GetCluster(context.TODO(), name)
-	if err != nil {
-		t.Fatalf("failed to get cluster (%s): %s", name, err)
-	}
-
-	assert.Equal(t, cluster.Name, name)
-	assert.Equal(t, cluster.JmxUsername, "reaperUser")
-	assert.True(t, cluster.JmxPasswordSet)
-	assert.Equal(t, len(cluster.Seeds), 2)
-	assert.Equal(t, 1, len(cluster.NodeState.GossipStates))
-
-	gossipState := cluster.NodeState.GossipStates[0]
-	assert.NotEmpty(t, gossipState.SourceNode)
-	assert.True(t, gossipState.TotalLoad > 0.0)
-	assert.Equal(t, 2, len(gossipState.EndpointNames), "EndpointNames (%s)", gossipState.EndpointNames)
-
-	assert.Equal(t, 1, len(gossipState.DataCenters), "DataCenters (%+v)", gossipState.DataCenters)
-	dcName := "datacenter1"
-	dc, found := gossipState.DataCenters[dcName]
-	if !found {
-		t.Fatalf("failed to find DataCenter (%s)", dcName)
-	}
-	assert.Equal(t, dcName, dc.Name)
-
-	assert.Equal(t, 1, len(dc.Racks))
-	rackName := "rack1"
-	rack, found := dc.Racks[rackName]
-	if !found {
-		t.Fatalf("failed to find Rack (%s)", rackName)
-	}
-
-	assert.Equal(t, 2, len(rack.Endpoints))
-	for _, ep := range rack.Endpoints {
-		assert.True(t, ep.Endpoint == gossipState.EndpointNames[0] || ep.Endpoint == gossipState.EndpointNames[1])
-		assert.NotEmpty(t, ep.HostId)
-		assert.Equal(t, dcName, ep.DataCenter)
-		assert.Equal(t, rackName, ep.Rack)
-		assert.NotEmpty(t, ep.Status)
-		assert.Equal(t, "3.11.8", ep.ReleaseVersion)
-		assert.NotEmpty(t, ep.Tokens)
-	}
-}
-
-func testGetClusterNotFound(t *testing.T, client *Client) {
-	name := "cluster-notfound"
-	cluster, err := client.GetCluster(context.TODO(), name)
-
-	if err != CassandraClusterNotFound {
-		t.Errorf("expected (%s) but got (%s)", CassandraClusterNotFound, err)
-	}
-
-	assert.Nil(t, cluster, "expected non-existent cluster to be nil")
-}
-
-func testGetClusters(t *testing.T, client *Client) {
-	results := make([]GetClusterResult, 0)
-
-	for result := range client.GetClusters(context.TODO()) {
-		results = append(results, result)
-	}
-
-	// Verify that we got the expected number of results
-	assert.Equal(t, 2, len(results))
-
-	// Verify that there were no errors
-	for _, result := range results {
-		assert.Nil(t, result.Error)
-	}
-
-	assertGetClusterResultsContains(t, results, "cluster-1")
-	assertGetClusterResultsContains(t, results, "cluster-2")
-}
-
-func assertGetClusterResultsContains(t *testing.T, results []GetClusterResult, clusterName string) {
-	var cluster *Cluster
-	for _, result := range results {
-		if result.Cluster.Name == clusterName {
-			cluster = result.Cluster
-			break
+	clusterReadinessGroup, ctx := errgroup.WithContext(parent)
+	t.Log("checking cassandra cluster-1 status...")
+	clusterReadinessGroup.Go(func() error {
+		if err := testenv.WaitForClusterReady(ctx, "cluster-1-node-0", 2); err != nil {
+			return fmt.Errorf("cluster-1 readiness check failed: %w", err)
 		}
-	}
-	assert.NotNil(t, cluster, "failed to find %s", clusterName)
-}
-
-func testGetClustersSyc(t *testing.T, client *Client) {
-	clusters, err := client.GetClustersSync(context.TODO())
-
-	if err != nil {
-		t.Fatalf("failed to get clusters synchronously: %s", err)
-	}
-
-	// Verify that we got the expected number of results
-	assert.Equal(t, 2, len(clusters))
-
-	assertClustersContains(t, clusters, "cluster-1")
-	assertClustersContains(t, clusters, "cluster-2")
-}
-
-func assertClustersContains(t *testing.T, clusters []*Cluster, clusterName string) {
-	for _, cluster := range clusters {
-		if cluster.Name == clusterName {
-			return
+		return nil
+	})
+	t.Log("checking cassandra cluster-2 status...")
+	clusterReadinessGroup.Go(func() error {
+		if err := testenv.WaitForClusterReady(ctx, "cluster-2-node-0", 2); err != nil {
+			return fmt.Errorf("cluster-2 readiness check failed: %w", err)
 		}
+		return nil
+	})
+	t.Log("checking cassandra cluster-3 status...")
+	clusterReadinessGroup.Go(func() error {
+		if err := testenv.WaitForClusterReady(ctx, "cluster-3-node-0", 1); err != nil {
+			return fmt.Errorf("cluster-3 readiness check failed: %w", err)
+		}
+		return nil
+	})
+	if err := clusterReadinessGroup.Wait(); err != nil {
+		t.Fatal(err)
 	}
-	t.Errorf("failed to find cluster (%s)", clusterName)
 }
 
-func testAddDeleteCluster(t *testing.T, client *Client) {
-	cluster := "cluster-3"
-	seed := "cluster-3-node-0"
-
-	if err := client.AddCluster(context.TODO(), cluster, seed); err != nil {
-		t.Fatalf("failed to add cluster (%s): %s", cluster, err)
+func registerClusters(t *testing.T, parent context.Context) {
+	addClusterGroup, ctx := errgroup.WithContext(parent)
+	t.Log("adding cluster-1 in Reaper...")
+	addClusterGroup.Go(func() error {
+		if err := testenv.AddCluster(ctx, "cluster-1", "cluster-1-node-0"); err != nil {
+			return fmt.Errorf("failed to add cluster-1: %w", err)
+		}
+		return nil
+	})
+	t.Log("adding cluster-2 in Reaper...")
+	addClusterGroup.Go(func() error {
+		if err := testenv.AddCluster(ctx, "cluster-2", "cluster-2-node-0"); err != nil {
+			return fmt.Errorf("failed to add cluster-2: %w", err)
+		}
+		return nil
+	})
+	// cluster-3 will be added by a test
+	if err := addClusterGroup.Wait(); err != nil {
+		t.Fatal(err)
 	}
+}
 
-	if clusterNames, err := client.GetClusterNames(context.TODO()); err != nil {
-		t.Fatalf("failed to get cluster names: %s", err)
-	} else {
-		assert.Equal(t, 3, len(clusterNames))
+func createFixtures(t *testing.T, parent context.Context) {
+	scriptsGroup, ctx := errgroup.WithContext(parent)
+	scripts := make(chan *os.File, 2)
+	t.Log("generating CQL scripts...")
+	scriptsGroup.Go(func() error {
+		if script, err := testenv.CreateCqlInsertScript(keyspace, "table1"); err != nil {
+			return fmt.Errorf("failed to create table1 CQL script: %w", err)
+		} else {
+			scripts <- script
+			return nil
+		}
+	})
+	scriptsGroup.Go(func() error {
+		if script, err := testenv.CreateCqlInsertScript(keyspace, "table2"); err != nil {
+			return fmt.Errorf("failed to create table2 CQL script: %w", err)
+		} else {
+			scripts <- script
+			return nil
+		}
+	})
+	if err := scriptsGroup.Wait(); err != nil {
+		t.Fatal(err)
 	}
-
-	if err := client.DeleteCluster(context.TODO(), cluster); err != nil {
-		t.Fatalf("failed to delete cluster (%s): %s", cluster, err)
-	}
-
-	if clusterNames, err := client.GetClusterNames(context.TODO()); err != nil {
-		t.Fatalf("failed to get cluster names: %s", err)
-	} else {
-		assert.Equal(t, 2, len(clusterNames))
-		assert.NotContains(t, clusterNames, cluster)
+	script1 := <-scripts
+	script2 := <-scripts
+	cqlFixturesGroup, ctx := errgroup.WithContext(parent)
+	t.Log("populating test keyspace in cluster-1...")
+	cqlFixturesGroup.Go(func() error {
+		if err := testenv.WaitForCqlReady(ctx, "cluster-1-node-0"); err != nil {
+			return fmt.Errorf("CQL cluster-1 readiness check failed: %w", err)
+		} else if err = testenv.CreateKeyspace(ctx, "cluster-1-node-0", keyspace, 2); err != nil {
+			return fmt.Errorf("failed to create keyspace on cluster-1: %w", err)
+		} else if err = testenv.CreateTable(ctx, "cluster-1-node-0", keyspace, "table1"); err != nil {
+			return fmt.Errorf("failed to create keyspace on cluster-1: %w", err)
+		} else if err = testenv.CreateTable(ctx, "cluster-1-node-0", keyspace, "table2"); err != nil {
+			return fmt.Errorf("failed to create keyspace on cluster-1: %w", err)
+		} else if err := testenv.ExecuteCqlScript(ctx, "cluster-1-node-0", script1); err != nil {
+			return fmt.Errorf("failed to execute CQL script 1 on cluster-1: %w", err)
+		} else if err := testenv.ExecuteCqlScript(ctx, "cluster-1-node-0", script2); err != nil {
+			return fmt.Errorf("failed to execute CQL script 2 on cluster-1: %w", err)
+		}
+		return nil
+	})
+	t.Log("populating test keyspace in cluster-2...")
+	cqlFixturesGroup.Go(func() error {
+		if err := testenv.WaitForCqlReady(ctx, "cluster-2-node-0"); err != nil {
+			return fmt.Errorf("CQL cluster-2 readiness check failed: %s", err)
+		} else if err = testenv.CreateKeyspace(ctx, "cluster-2-node-0", keyspace, 2); err != nil {
+			return fmt.Errorf("failed to create keyspace on cluster-2: %s", err)
+		} else if err = testenv.CreateTable(ctx, "cluster-2-node-0", keyspace, "table1"); err != nil {
+			return fmt.Errorf("failed to create keyspace on cluster-2: %s", err)
+		} else if err = testenv.CreateTable(ctx, "cluster-2-node-0", keyspace, "table2"); err != nil {
+			return fmt.Errorf("failed to create keyspace on cluster-2: %s", err)
+		} else if err := testenv.ExecuteCqlScript(ctx, "cluster-2-node-0", script1); err != nil {
+			return fmt.Errorf("failed to execute CQL script 1 on cluster-2: %s", err)
+		} else if err := testenv.ExecuteCqlScript(ctx, "cluster-2-node-0", script2); err != nil {
+			return fmt.Errorf("failed to execute CQL script 2 on cluster-2: %s", err)
+		}
+		return nil
+	})
+	if err := cqlFixturesGroup.Wait(); err != nil {
+		t.Fatal(err)
 	}
 }
