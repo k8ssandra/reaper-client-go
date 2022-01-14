@@ -126,6 +126,7 @@ func (c *client) getJwt(ctx context.Context) error {
 	if resp, err := c.doGet(ctx, "/jwt", nil); err == nil {
 		if jwt, err := c.readBodyAsString(resp); err == nil {
 			c.jwt = &jwt
+			c.jSessionId = nil
 			return nil
 		} else {
 			return err

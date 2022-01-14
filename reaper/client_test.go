@@ -39,7 +39,7 @@ func TestClient(t *testing.T) {
 	t.Run("Login", run(client, testLogin))
 	t.Run("Ping", run(client, testIsReaperUp))
 
-	registerClusters(t, ctx)
+	registerClusters(t, ctx, client)
 
 	t.Log("running Cluster resource tests...")
 
@@ -103,18 +103,18 @@ func prepareEnvironment(t *testing.T, parent context.Context) {
 	}
 }
 
-func registerClusters(t *testing.T, parent context.Context) {
+func registerClusters(t *testing.T, parent context.Context, client Client) {
 	addClusterGroup, ctx := errgroup.WithContext(parent)
 	t.Log("adding cluster-1 in Reaper...")
 	addClusterGroup.Go(func() error {
-		if err := testenv.AddCluster(ctx, "cluster-1", "cluster-1-node-0"); err != nil {
+		if err := client.AddCluster(ctx, "cluster-1", "cluster-1-node-0"); err != nil {
 			return fmt.Errorf("failed to add cluster-1: %w", err)
 		}
 		return nil
 	})
 	t.Log("adding cluster-2 in Reaper...")
 	addClusterGroup.Go(func() error {
-		if err := testenv.AddCluster(ctx, "cluster-2", "cluster-2-node-0"); err != nil {
+		if err := client.AddCluster(ctx, "cluster-2", "cluster-2-node-0"); err != nil {
 			return fmt.Errorf("failed to add cluster-2: %w", err)
 		}
 		return nil
