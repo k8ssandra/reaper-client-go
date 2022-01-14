@@ -3,11 +3,13 @@ package reaper
 import (
 	"context"
 	"fmt"
-	"github.com/k8ssandra/reaper-client-go/testenv"
-	"golang.org/x/sync/errgroup"
 	"net/url"
 	"os"
 	"testing"
+
+	"github.com/k8ssandra/reaper-client-go/testenv"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -34,7 +36,7 @@ func TestClient(t *testing.T) {
 	ctx := context.Background()
 
 	prepareEnvironment(t, ctx)
-
+	t.Run("Login", run(client, testLogin))
 	t.Run("Ping", run(client, testIsReaperUp))
 
 	registerClusters(t, ctx)
@@ -186,4 +188,9 @@ func createFixtures(t *testing.T, parent context.Context) {
 	if err := cqlFixturesGroup.Wait(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func testLogin(t *testing.T, client Client) {
+	err := client.Login(context.TODO(), "reaperUser", "reaperPass")
+	assert.NoError(t, err)
 }

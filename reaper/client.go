@@ -2,10 +2,12 @@ package reaper
 
 import (
 	"context"
-	"github.com/google/uuid"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Client interface {
@@ -78,12 +80,16 @@ type Client interface {
 	RepairSchedules(ctx context.Context) ([]RepairSchedule, error)
 
 	RepairSchedulesForCluster(ctx context.Context, clusterName string) ([]RepairSchedule, error)
+
+	Login(ctx context.Context, username string, password string) error
 }
 
 type client struct {
 	baseURL    *url.URL
 	userAgent  string
 	httpClient *http.Client
+	jSessionId *string
+	jwt        *string
 }
 
 func NewClient(reaperBaseURL *url.URL, options ...ClientCreateOption) Client {
@@ -94,6 +100,39 @@ func NewClient(reaperBaseURL *url.URL, options ...ClientCreateOption) Client {
 		option(client)
 	}
 	return client
+}
+
+func (c *client) Login(ctx context.Context, username, password string) error {
+	formData := map[string]string{}
+	formData["username"] = username
+	formData["password"] = password
+	formData["rememberMe"] = "false"
+	if resp, err := c.doPost(ctx, "/login", nil, formData); err == nil {
+		cookies := resp.Cookies()
+		for _, cookie := range cookies {
+			if cookie.Name == "JSESSIONID" {
+				c.jSessionId = &cookie.Value
+				return c.getJwt(ctx)
+			}
+		}
+		respBody, _ := c.readBodyAsString(resp)
+		return fmt.Errorf("unable to log in. no JSESSIONID cookie. resp: %s - cookies: %v", respBody, cookies)
+	} else {
+		return err
+	}
+}
+
+func (c *client) getJwt(ctx context.Context) error {
+	if resp, err := c.doGet(ctx, "/jwt", nil); err == nil {
+		if jwt, err := c.readBodyAsString(resp); err == nil {
+			c.jwt = &jwt
+			return nil
+		} else {
+			return err
+		}
+	} else {
+		return err
+	}
 }
 
 type ClientCreateOption func(client *client)
