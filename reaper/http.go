@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/go-querystring/query"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/google/go-querystring/query"
 )
 
 func (c *client) doGet(
@@ -90,8 +91,12 @@ func (c *client) doRequest(
 	if err != nil {
 		return nil, err
 	}
-	// TODO authentication headers
+	if formData != nil {
+		c.addFormHeaders(req, body)
+	}
+
 	c.addCommonHeaders(req)
+	c.addAuthHeaders(req)
 	res, err := c.httpClient.Do(req)
 	if err == nil {
 		err = c.checkResponseStatus(res, expectedStatuses...)
@@ -153,6 +158,16 @@ func (c *client) addCommonHeaders(req *http.Request) {
 	req.Header.Set("Accept", "application/json;q=0.9,text/plain")
 	if c.userAgent != "" {
 		req.Header.Set("User-Agent", c.userAgent)
+	}
+}
+
+func (c *client) addAuthHeaders(req *http.Request) {
+	if c.jSessionId != nil {
+		req.Header.Set("Cookie", fmt.Sprintf("JSESSIONID=%s", *c.jSessionId))
+	}
+
+	if c.jwt != nil {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *c.jwt))
 	}
 }
 

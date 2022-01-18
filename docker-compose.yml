@@ -127,7 +127,9 @@ services:
       REAPER_JMX_PORTS: "{cassandra1: 7199, cassandra2: 7199}"
       REAPER_JMX_AUTH_USERNAME: reaperUser
       REAPER_JMX_AUTH_PASSWORD: reaperPass
-      REAPER_AUTH_ENABLED: "false"
+      REAPER_AUTH_ENABLED: "true"
+      REAPER_AUTH_USER: reaperUser
+      REAPER_AUTH_PASSWORD: reaperPass
     ports:
       - "8080:8080"
       - "8081:8081"
