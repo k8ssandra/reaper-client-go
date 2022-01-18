@@ -94,8 +94,9 @@ func (c *client) doRequest(
 	if formData != nil {
 		c.addFormHeaders(req, body)
 	}
-	// TODO authentication headers
+
 	c.addCommonHeaders(req)
+	c.addAuthHeaders(req)
 	res, err := c.httpClient.Do(req)
 	if err == nil {
 		err = c.checkResponseStatus(res, expectedStatuses...)
@@ -158,7 +159,9 @@ func (c *client) addCommonHeaders(req *http.Request) {
 	if c.userAgent != "" {
 		req.Header.Set("User-Agent", c.userAgent)
 	}
+}
 
+func (c *client) addAuthHeaders(req *http.Request) {
 	if c.jSessionId != nil {
 		req.Header.Set("Cookie", fmt.Sprintf("JSESSIONID=%s", *c.jSessionId))
 	}

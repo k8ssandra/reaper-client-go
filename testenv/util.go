@@ -126,16 +126,6 @@ func WaitForClusterReady(ctx context.Context, seed string, numNodes int) error {
 	}
 }
 
-// AddCluster adds a cluster to Reaper without using the client.
-func AddCluster(ctx context.Context, cluster string, seed string) error {
-	relPath := "../scripts/add-cluster.sh"
-	p, err := filepath.Abs(relPath)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute path of (%s): %w", relPath, err)
-	}
-	return exec.CommandContext(ctx, p, cluster, seed).Run()
-}
-
 func WaitForCqlReady(ctx context.Context, seed string) error {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
