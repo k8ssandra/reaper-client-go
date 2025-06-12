@@ -13,20 +13,17 @@ jobs:
   build_and_test:
     name: Build and test reaper-client-go
     runs-on: ubuntu-latest
-    env:
-      GOPATH: /home/runner/go
-      GOROOT: /usr/local/go1.15
     steps:
       - name: Install docker-compose
         run: |
           sudo curl -L "https://github.com/docker/compose/releases/download/1.27.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
 
-      - name: Set up Go 1.x
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ^1.15
-        id: go
+          go-version-file: 'go.mod'
+          cache: true
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
