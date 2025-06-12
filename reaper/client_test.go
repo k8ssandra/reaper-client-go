@@ -3,6 +3,8 @@ package reaper
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"testing"
@@ -193,4 +195,212 @@ func createFixtures(t *testing.T, parent context.Context) {
 func testLogin(t *testing.T, client Client) {
 	err := client.Login(context.TODO(), "reaperUser", "reaperPass")
 	assert.NoError(t, err)
+}
+
+// Unit tests for the Login function logic using mocked HTTP responses
+func TestLoginScenarios(t *testing.T) {
+	t.Run("LoginWithJSessionIdFlow", testLoginWithJSessionIdFlow)
+	t.Run("LoginWithDirectJwtToken", testLoginWithDirectJwtToken)
+	t.Run("LoginWithNoCookies", testLoginWithNoCookies)
+	t.Run("LoginWithInvalidJsonResponse", testLoginWithInvalidJsonResponse)
+	t.Run("LoginWithJSessionIdButJwtFails", testLoginWithJSessionIdButJwtFails)
+	t.Run("LoginPostFails", testLoginPostFails)
+}
+
+func testLoginWithJSessionIdFlow(t *testing.T) {
+	// Mock server that returns JSESSIONID cookie for login and JWT for /jwt endpoint
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/login":
+			// Verify form data
+			assert.Equal(t, "POST", r.Method)
+			assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
+
+			// Read and verify form data
+			body := make([]byte, r.ContentLength)
+			r.Body.Read(body)
+			formData := string(body)
+			assert.Contains(t, formData, "username=testuser")
+			assert.Contains(t, formData, "password=testpass")
+			assert.Contains(t, formData, "rememberMe=false")
+
+			// Set JSESSIONID cookie
+			http.SetCookie(w, &http.Cookie{Name: "JSESSIONID", Value: "test-session-id"})
+			w.WriteHeader(http.StatusOK)
+		case "/jwt":
+			// Verify session cookie is present
+			cookie, err := r.Cookie("JSESSIONID")
+			assert.NoError(t, err)
+			assert.Equal(t, "test-session-id", cookie.Value)
+
+			// Return JWT token
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("test-jwt-token"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	// Create client with mock server URL
+	u, _ := url.Parse(server.URL)
+	reaperClient := NewClient(u)
+
+	// Test login
+	err := reaperClient.Login(context.Background(), "testuser", "testpass")
+	assert.NoError(t, err)
+
+	// Verify client state
+	clientImpl := reaperClient.(*client)
+	assert.Nil(t, clientImpl.jSessionId) // Should be cleared after JWT retrieval
+	assert.NotNil(t, clientImpl.jwt)
+	assert.Equal(t, "test-jwt-token", *clientImpl.jwt)
+}
+
+func testLoginWithDirectJwtToken(t *testing.T) {
+	// Mock server that returns JWT token in JSON response body
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/login" {
+			assert.Equal(t, "POST", r.Method)
+
+			// Return JSON response with JWT token
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			jsonResp := `{"token":"eyJhbGciOiJIUzM4NCJ9.test-jwt-token","username":"testuser","roles":["operator"]}`
+			w.Write([]byte(jsonResp))
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	// Create client with mock server URL
+	u, _ := url.Parse(server.URL)
+	reaperClient := NewClient(u)
+
+	// Test login
+	err := reaperClient.Login(context.Background(), "testuser", "testpass")
+	assert.NoError(t, err)
+
+	// Verify client state
+	clientImpl := reaperClient.(*client)
+	assert.Nil(t, clientImpl.jSessionId) // Should remain nil
+	assert.NotNil(t, clientImpl.jwt)
+	assert.Equal(t, "eyJhbGciOiJIUzM4NCJ9.test-jwt-token", *clientImpl.jwt)
+}
+
+func testLoginWithNoCookies(t *testing.T) {
+	// Mock server that returns no cookies and no JWT token in response body
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/login" {
+			assert.Equal(t, "POST", r.Method)
+
+			// Return response without any cookies or JWT token
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("login response body"))
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	// Create client with mock server URL
+	u, _ := url.Parse(server.URL)
+	reaperClient := NewClient(u)
+
+	// Test login - should fail
+	err := reaperClient.Login(context.Background(), "testuser", "testpass")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to log in. no JSESSIONID cookie and no JWT token in response body")
+	assert.Contains(t, err.Error(), "login response body")
+
+	// Verify client state remains empty
+	clientImpl := reaperClient.(*client)
+	assert.Nil(t, clientImpl.jSessionId)
+	assert.Nil(t, clientImpl.jwt)
+}
+
+func testLoginWithInvalidJsonResponse(t *testing.T) {
+	// Mock server that returns invalid JSON response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/login" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("invalid JSON response"))
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	// Create client with mock server URL
+	u, _ := url.Parse(server.URL)
+	reaperClient := NewClient(u)
+
+	// Test login - should fail
+	err := reaperClient.Login(context.Background(), "testuser", "testpass")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid JSON response")
+
+	// Verify client state remains empty
+	clientImpl := reaperClient.(*client)
+	assert.Nil(t, clientImpl.jSessionId)
+	assert.Nil(t, clientImpl.jwt)
+}
+
+func testLoginWithJSessionIdButJwtFails(t *testing.T) {
+	// Mock server where login succeeds but JWT endpoint fails
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/login":
+			// Set JSESSIONID cookie
+			http.SetCookie(w, &http.Cookie{Name: "JSESSIONID", Value: "test-session-id"})
+			w.WriteHeader(http.StatusOK)
+		case "/jwt":
+			// JWT endpoint fails
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("JWT service unavailable"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	// Create client with mock server URL
+	u, _ := url.Parse(server.URL)
+	reaperClient := NewClient(u)
+
+	// Test login - should fail when trying to get JWT
+	err := reaperClient.Login(context.Background(), "testuser", "testpass")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "JWT service unavailable")
+
+	// Verify client state has session ID but no JWT (login sets session ID before calling getJwt)
+	clientImpl := reaperClient.(*client)
+	assert.NotNil(t, clientImpl.jSessionId)
+	assert.Equal(t, "test-session-id", *clientImpl.jSessionId)
+	assert.Nil(t, clientImpl.jwt)
+}
+
+func testLoginPostFails(t *testing.T) {
+	// Mock server that returns error for login
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/login" {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("Invalid credentials"))
+		}
+	}))
+	defer server.Close()
+
+	// Create client with mock server URL
+	u, _ := url.Parse(server.URL)
+	reaperClient := NewClient(u)
+
+	// Test login - should fail immediately
+	err := reaperClient.Login(context.Background(), "testuser", "testpass")
+	assert.Error(t, err)
+
+	// Verify client state remains empty
+	clientImpl := reaperClient.(*client)
+	assert.Nil(t, clientImpl.jSessionId)
+	assert.Nil(t, clientImpl.jwt)
 }

@@ -2,6 +2,7 @@ package reaper
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -50,7 +51,7 @@ type Client interface {
 	UpdateRepairRun(ctx context.Context, repairRunId uuid.UUID, newIntensity Intensity) error
 
 	// StartRepairRun starts (or resumes) a repair run identified by its id. Can also be used to reattempt a repair run
-	// in state “ERROR”, picking up where it left off.
+	// in state "ERROR", picking up where it left off.
 	StartRepairRun(ctx context.Context, repairRunId uuid.UUID) error
 
 	// PauseRepairRun pauses a repair run identified by its id. The repair run must be in RUNNING state.
@@ -115,15 +116,27 @@ func (c *client) Login(ctx context.Context, username, password string) error {
 				return c.getJwt(ctx)
 			}
 		}
-		respBody, _ := c.readBodyAsString(resp)
-		return fmt.Errorf("unable to log in. no JSESSIONID cookie. resp: %s - cookies: %v", respBody, cookies)
+		// No JSESSIONID cookie found, check if response body contains JWT token in JSON format
+		respBody, readErr := c.readBodyAsString(resp)
+		if readErr == nil {
+			var loginResp struct {
+				Token    string   `json:"token"`
+				Username string   `json:"username"`
+				Roles    []string `json:"roles"`
+			}
+			if err := json.Unmarshal([]byte(respBody), &loginResp); err == nil && loginResp.Token != "" {
+				c.jwt = &loginResp.Token
+				return nil
+			}
+		}
+		return fmt.Errorf("unable to log in. no JSESSIONID cookie and no JWT token in response body. resp: %s - cookies: %v", respBody, cookies)
 	} else {
 		return err
 	}
 }
 
 func (c *client) getJwt(ctx context.Context) error {
-	if resp, err := c.doGet(ctx, "/jwt", nil); err == nil {
+	if resp, err := c.doGet(ctx, "/jwt", nil, http.StatusOK); err == nil {
 		if jwt, err := c.readBodyAsString(resp); err == nil {
 			c.jwt = &jwt
 			c.jSessionId = nil
