@@ -114,9 +114,13 @@ func (c *client) Login(ctx context.Context, username, password string) error {
 				c.jSessionId = &cookie.Value
 				return c.getJwt(ctx)
 			}
+			if cookie.Name == "jwtToken" {
+				c.jwt = &cookie.Value
+				return nil
+			}
 		}
 		respBody, _ := c.readBodyAsString(resp)
-		return fmt.Errorf("unable to log in. no JSESSIONID cookie. resp: %s - cookies: %v", respBody, cookies)
+		return fmt.Errorf("unable to log in. no JSESSIONID or jwtToken cookie. resp: %s - cookies: %v", respBody, cookies)
 	} else {
 		return err
 	}
